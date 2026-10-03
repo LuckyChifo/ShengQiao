@@ -33,6 +33,7 @@ import uuid
 import numpy as np
 
 import capture
+import denoise
 import mic as micmod
 from capture import log, IS_WINDOWS, LOG_LINES
 
@@ -97,6 +98,8 @@ def load_config():
         changed = True
     cfg.setdefault('device', 'default')
     cfg.setdefault('micDevice', 'auto')
+    if cfg.get('denoise') not in denoise.MODES:
+        cfg['denoise'] = 'rnnoise'
     if changed:
         save_config(cfg)
     return cfg
@@ -550,7 +553,10 @@ class App:
         self.cfg = cfg
         self.source = source
         self.hub = Hub(self)
-        self.mic = micmod.MicSink(mic_output, cfg.get('micDevice') or 'auto')
+        dn = cfg.get('denoise', 'rnnoise')
+        if dn not in denoise.available_modes():
+            dn = 'light'
+        self.mic = micmod.MicSink(mic_output, cfg.get('micDevice') or 'auto', dn)
         self.loop = None
         self.port = None
         self.urls = []
@@ -609,7 +615,17 @@ class App:
         return {'type': 'status', 'mic': {
             'state': st['state'], 'device': st['device'], 'error': st['error'],
             'mine': self.mic.owner is client, 'latencyMs': st['latencyMs'], 'underruns': st['underruns'],
-            'busy': self.mic.owner is not None and self.mic.owner is not client}, 'listeners': len(self.hub.ws)}
+            'busy': self.mic.owner is not None and self.mic.owner is not client,
+            'denoise': st['denoise'], 'denoiseModes': st['denoiseModes']}, 'listeners': len(self.hub.ws)}
+
+    def set_denoise(self, mode, source):
+        if mode not in denoise.available_modes() or mode == self.mic.denoise_mode:
+            return False
+        self.mic.set_denoise(mode)
+        self.cfg['denoise'] = mode
+        save_config(self.cfg)
+        log('降噪改为：%s（%s）' % (denoise.MODE_NAMES.get(mode, mode), source))
+        return True
 
     # ---------------------------------------------------------- periodic
     async def manage_capture(self):
@@ -792,6 +808,13 @@ class App:
                     self.mic.set_device(dev)
                     log('麦克风输出设备改为：%s' % ('自动（VB-CABLE）' if dev == 'auto' else dev))
             return json_response({'ok': True})
+        if path == '/api/denoise' and method == 'POST':
+            try:
+                mode = json.loads(body.decode('utf-8') or '{}').get('mode') or ''
+            except Exception:
+                return http_response(400, 'bad json')
+            self.set_denoise(mode, '电脑端控制页')
+            return json_response({'ok': True, 'mode': self.mic.denoise_mode})
         if path == '/api/chime' and method == 'POST':
             self.hub.play_chime()
             return json_response({'ok': True})
@@ -857,6 +880,8 @@ class App:
             client.is_app = True
             if 'listen' in msg:
                 client.listen = bool(msg['listen'])
+            if isinstance(msg.get('denoise'), str):
+                self.set_denoise(msg['denoise'], short_ua(client.ua))
             if 'micRate' in msg:
                 try:
                     client.mic_rate = max(8000, min(192000, int(msg['micRate'])))

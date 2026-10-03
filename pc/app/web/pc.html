@@ -121,6 +121,14 @@ pre.log { max-height: 260px; overflow: auto; margin: 10px 0 0; padding: 10px 12p
         <div class="meter" aria-hidden="true"><i id="micBar"></i></div>
         <div class="meter-legend"><span>-60 dB</span><span>-30</span><span>0 dB</span></div>
         <p class="warn" id="conflict" hidden>采集的设备和麦克风写入的设备是同一个，手机会听到自己的声音。请在上面把采集设备换成你的扬声器或耳机。</p>
+        <label class="sub" for="denoise">降噪</label>
+        <select id="denoise" aria-label="降噪方式">
+          <option value="off">关闭</option>
+          <option value="light">轻度：频谱减法（风扇、空调等稳定噪声，几乎不伤人声）</option>
+          <option value="rnnoise">RNNoise 神经网络（推荐：键盘、杂音也能压）</option>
+          <option value="strong">强力：RNNoise + 噪声门（不说话时完全静音）</option>
+        </select>
+        <p id="denoiseNote"></p>
         <label class="sub" for="micDevice">麦克风声音写到</label>
         <select id="micDevice" aria-label="麦克风声音写到哪个设备"></select>
         <p>在 QQ、微信、腾讯会议、OBS 等软件里，把麦克风选成 <b class="mono">CABLE Output (VB-Audio Virtual Cable)</b>。</p>
@@ -179,6 +187,11 @@ pre.log { max-height: 260px; overflow: auto; margin: 10px 0 0; padding: 10px 12p
   });
   $('device').addEventListener('change', function () {
     fetch('/api/device', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: $('device').value }) });
+  });
+  var denoiseBusyUntil = 0;
+  $('denoise').addEventListener('change', function () {
+    denoiseBusyUntil = Date.now() + 1500;
+    fetch('/api/denoise', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ mode: $('denoise').value }) });
   });
   $('micDevice').addEventListener('change', function () {
     fetch('/api/mic-device', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: $('micDevice').value }) });
@@ -267,6 +280,14 @@ pre.log { max-height: 260px; overflow: auto; margin: 10px 0 0; padding: 10px 12p
       var mdb = m.level > 0 ? 20 * Math.log10(m.level) : -90;
       $('micBar').style.width = (m.active ? Math.max(0, Math.min(100, (mdb + 60) / 60 * 100)) : 0) + '%';
       $('conflict').hidden = !s.conflict;
+      var modes = m.denoiseModes || [];
+      var opts = $('denoise').options;
+      for (var oi = 0; oi < opts.length; oi++) opts[oi].disabled = modes.length > 0 && modes.indexOf(opts[oi].value) < 0;
+      if (Date.now() > denoiseBusyUntil && m.denoise && $('denoise').value !== m.denoise) $('denoise').value = m.denoise;
+      $('denoiseNote').textContent = m.denoiseError ? m.denoiseError :
+        ({ off: '不处理，声音最原始。', light: '延迟 +10 毫秒。对键盘声这类突发噪声无效。',
+           rnnoise: '延迟 +20 毫秒。开麦后前 0.2 秒是静音（模型预热）。', strong: '延迟 +20 毫秒。说话停下 0.2 秒后自动静音，适合吵的环境。' })[m.denoise] || '';
+      $('denoiseNote').classList.toggle('err', !!m.denoiseError);
       var logEl = $('log'), logTxt = (s.log || []).join('\n');
       if (logEl.getAttribute('data-n') !== String(logTxt.length)) {
         var atBottom = logEl.scrollTop + logEl.clientHeight >= logEl.scrollHeight - 4;

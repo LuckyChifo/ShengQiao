@@ -13,6 +13,8 @@ jobs:
       - run: pip install -r pc/requirements.txt pyinstaller
       - name: Jitter buffer simulations
         run: python pc/tests/test_mic_core.py
+      - name: Noise suppression quality (RNNoise DLL + spectral subtraction)
+        run: python pc/tests/test_denoise.py
       - name: Install VB-CABLE and start Windows Audio
         continue-on-error: true
         shell: pwsh

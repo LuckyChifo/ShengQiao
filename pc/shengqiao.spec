@@ -8,8 +8,9 @@ app = os.path.join(SPECPATH, 'app')
 a = Analysis(
     [os.path.join(app, 'server.py')],
     pathex=[app],
-    datas=[(os.path.join(app, 'web'), 'web'), (os.path.join(app, 'shengqiao.ico'), '.')],
-    hiddenimports=['tray', 'mic', 'capture', 'selftest', 'pystray._win32', 'PIL.Image']
+    datas=[(os.path.join(app, 'web'), 'web'), (os.path.join(app, 'shengqiao.ico'), '.'),
+           (os.path.join(app, 'lib', 'rnnoise.dll'), 'lib'), (os.path.join(app, 'lib', 'RNNOISE-LICENSE.txt'), 'lib')],
+    hiddenimports=['tray', 'mic', 'capture', 'selftest', 'denoise', 'pystray._win32', 'PIL.Image']
                   + collect_submodules('zeroconf') + collect_submodules('soundcard'),
     excludes=['tkinter', 'matplotlib', 'pytest'],
 )

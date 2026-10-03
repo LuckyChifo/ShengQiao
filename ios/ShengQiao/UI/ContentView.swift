@@ -150,10 +150,21 @@ struct ContentView: View {
                 LevelBar(level: model.micLevel)
             }
             Divider().background(Theme.line)
+            VStack(alignment: .leading, spacing: 8) {
+                Text("降噪").foregroundColor(Theme.muted)
+                Picker("降噪", selection: denoiseBinding) {
+                    ForEach(DenoiseMode.allCases) { m in
+                        Text(m.title).tag(m)
+                    }
+                }
+                .pickerStyle(.segmented)
+                Text(currentDenoise.help).font(.footnote).foregroundColor(Theme.muted)
+            }
+            Divider().background(Theme.line)
             Toggle(isOn: $model.echoCancel) {
                 VStack(alignment: .leading, spacing: 3) {
                     Text("消除回声")
-                    Text("用手机外放听电脑声音时打开，电脑那头就听不到回声。戴耳机可以关掉，音质更好。")
+                    Text("iPhone 系统的语音处理：用手机外放听电脑声音时打开，电脑那头就听不到回声（也会顺带压一点噪声）。和上面的降噪互不影响。戴耳机可以关掉，音质更好。")
                         .font(.footnote).foregroundColor(Theme.muted)
                 }
             }
@@ -163,6 +174,14 @@ struct ContentView: View {
             Text("在电脑上的 QQ、微信、腾讯会议、OBS 等软件里，把麦克风选成「CABLE Output」。")
                 .font(.footnote).foregroundColor(Theme.muted)
         }
+    }
+
+    private var currentDenoise: DenoiseMode {
+        DenoiseMode(rawValue: model.micInfo.denoise) ?? .rnnoise
+    }
+
+    private var denoiseBinding: Binding<DenoiseMode> {
+        Binding(get: { currentDenoise }, set: { model.setDenoise($0) })
     }
 
     private var listenSection: some View {

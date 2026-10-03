@@ -34,6 +34,30 @@ struct MicInfo: Equatable {
     var mine = false
     var busy = false
     var latencyMs = 0
+    var denoise = "rnnoise"                 // 电脑端当前的降噪方式
+    var denoiseModes: [String] = []         // 电脑端能用的降噪方式
+}
+
+/// 降噪方式（在电脑端处理，App 只负责选择）
+enum DenoiseMode: String, CaseIterable, Identifiable {
+    case off, light, rnnoise, strong
+    var id: String { rawValue }
+    var title: String {
+        switch self {
+        case .off: return "关闭"
+        case .light: return "轻度"
+        case .rnnoise: return "RNNoise"
+        case .strong: return "强力"
+        }
+    }
+    var help: String {
+        switch self {
+        case .off: return "不做降噪，声音最原始。"
+        case .light: return "频谱减法，压风扇、空调这类持续的噪声，几乎不伤人声。对键盘声无效。"
+        case .rnnoise: return "神经网络降噪（推荐），键盘、杂音也能压掉。多 20 毫秒延迟。"
+        case .strong: return "RNNoise 加噪声门：不说话时完全静音，适合很吵的环境。"
+        }
+    }
 }
 
 struct LiveStats: Equatable {
@@ -104,6 +128,7 @@ final class AppModel: ObservableObject {
     private var tick = 0
     private var rttMs: Double?
     private var discoveryWatch: Any?
+    private var denoiseSentAt = Date.distantPast
 
     // 只在 connection.queue 上访问
     private var qListen = false
@@ -309,11 +334,23 @@ final class AppModel: ObservableObject {
                 info.mine = (mic["mine"] as? Bool) ?? false
                 info.busy = (mic["busy"] as? Bool) ?? false
                 info.latencyMs = (mic["latencyMs"] as? Int) ?? 0
+                info.denoise = (mic["denoise"] as? String) ?? "rnnoise"
+                info.denoiseModes = (mic["denoiseModes"] as? [String]) ?? []
+                if Date() < denoiseSentAt.addingTimeInterval(1.5) { info.denoise = micInfo.denoise }   // 刚改过，等电脑确认
                 if info != micInfo { micInfo = info }
             }
         default:
             break
         }
+    }
+
+    /// 选择降噪方式：发给电脑端，界面先改过来
+    func setDenoise(_ mode: DenoiseMode) {
+        var info = micInfo
+        info.denoise = mode.rawValue
+        micInfo = info
+        denoiseSentAt = Date()
+        connection.sendJSON(["type": "config", "denoise": mode.rawValue])
     }
 
     private func sendConfig() {

@@ -8,6 +8,7 @@ import time
 
 import numpy as np
 
+import denoise
 from capture import log, IS_WINDOWS
 
 OUT_RATE = 48000
@@ -295,10 +296,12 @@ class MicSink:
 
     OUT_PAD = 0.02            # 声卡缓冲里保持约 20 ms
 
-    def __init__(self, output=None, device_pref='auto'):
+    def __init__(self, output=None, device_pref='auto', denoise_mode='rnnoise'):
         self.output = output
         self.device_pref = device_pref or 'auto'
         self.jitter = MicJitter()
+        self.denoiser = denoise.Denoiser(denoise_mode)
+        self.denoise_mode = denoise_mode
         self.state = 'off'        # off / starting / running / no-cable / error
         self.error = ''
         self.device_name = ''
@@ -337,6 +340,7 @@ class MicSink:
             self.owner = owner
             self.jitter.set_src_rate(rate)
             self.jitter.reset()
+            self.denoiser.reset()
             self.last_feed = time.monotonic()
             self._want.set()
             if self._thread is None:
@@ -351,6 +355,12 @@ class MicSink:
             self._want.clear()
             self._stop.set()
 
+    def set_denoise(self, mode):
+        if mode not in denoise.MODES:
+            mode = 'off'
+        self.denoise_mode = mode
+        self.denoiser.set_mode(mode)
+
     def feed(self, owner, pcm16):
         if owner is not self.owner:
             return
@@ -360,10 +370,12 @@ class MicSink:
     def status(self):
         st = self.jitter.stats()
         peak, self.jitter.peak = self.jitter.peak, 0.0
+        dn_delay = {'off': 0, 'light': 10, 'rnnoise': 20, 'strong': 20}.get(self.denoise_mode, 0)
         return {'state': self.state, 'error': self.error, 'device': self.device_name,
                 'active': self.owner is not None, 'level': round(peak, 4),
-                'latencyMs': round(st['emaMs'] + self.OUT_PAD * 1000), 'underruns': st['underruns'],
-                'devicePref': self.device_pref}
+                'latencyMs': round(st['emaMs'] + self.OUT_PAD * 1000 + dn_delay), 'underruns': st['underruns'],
+                'devicePref': self.device_pref, 'denoise': self.denoise_mode,
+                'denoiseModes': denoise.available_modes(), 'denoiseError': self.denoiser.error}
 
     # ------------------------------------------------------------ thread
     def _main(self):
@@ -401,7 +413,7 @@ class MicSink:
             except Exception:
                 pad = 0
             if pad < pad_target:
-                blk = self.jitter.pull(BLOCK)
+                blk = self.denoiser.process(self.jitter.pull(BLOCK))
                 p.play(np.repeat(blk[:, None], 2, axis=1))
             else:
                 time.sleep(0.002)

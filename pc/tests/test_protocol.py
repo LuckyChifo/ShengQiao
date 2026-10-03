@@ -256,7 +256,7 @@ check('v2: listen=false -> no audio frames', audio == 0, audio)
 check('v2: periodic status messages to app', any(m.get('type') == 'status' for m in statuses), statuses[-1:] if statuses else None)
 
 # mic on at 44.1 kHz; send a 1 kHz tone for 4 s in 10 ms frames, paced in real time
-ws_send_text(ska, json.dumps({'type': 'config', 'listen': True, 'mic': True, 'micRate': 44100}))
+ws_send_text(ska, json.dumps({'type': 'config', 'listen': True, 'mic': True, 'micRate': 44100, 'denoise': 'off'}))  # 纯音会被降噪当成噪声
 SR, F = 44100, 1000.0
 w = 2 * np.pi * F / SR
 seq = 0
@@ -291,6 +291,23 @@ if len(nz) > 48000:
     check('v2: mic stream has no clicks/dropouts', clicks == 0, clicks)
     rms = np.sqrt(np.mean(seg ** 2))
     check('v2: mic level preserved (0.4 amplitude)', abs(rms * np.sqrt(2) - 0.4) < 0.02, round(rms * np.sqrt(2), 3))
+
+# denoise mode: set from the App, reported back in status and on the PC page; PC page can change it too
+ws_send_text(ska, json.dumps({'type': 'config', 'denoise': 'strong'}))
+time.sleep(1.3)
+st_msgs = [json.loads(p) for op, p in drain(qa, 1.2) if op == 1]
+st_last = [m for m in st_msgs if m.get('type') == 'status'][-1:]
+check('denoise: App sets strong, status reports it', st_last and st_last[0]['mic']['denoise'] == 'strong'
+      and 'rnnoise' in st_last[0]['mic']['denoiseModes'], st_last)
+s_, h_, d_ = req('127.0.0.1', 'POST', '/api/denoise', body=json.dumps({'mode': 'light'}).encode())
+time.sleep(1.2)
+st_msgs = [json.loads(p) for op, p in drain(qa, 1.2) if op == 1]
+st_last = [m for m in st_msgs if m.get('type') == 'status'][-1:]
+check('denoise: PC page sets light, App is told', st_last and st_last[0]['mic']['denoise'] == 'light', st_last)
+ws_send_text(ska, json.dumps({'type': 'config', 'denoise': 'bogus-mode'}))
+time.sleep(0.3)
+s_, h_, d_ = req('127.0.0.1', 'GET', '/api/status')
+check('denoise: unknown mode ignored', json.loads(d_)['mic']['denoise'] == 'light')
 
 # second phone takes over the mic -> first one is told it is busy
 skb, head, rest = ws_connect(KEY, header_key=True, ua=APP_UA)

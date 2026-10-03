@@ -18,8 +18,17 @@ Windows 电脑和 iPhone 之间的双向局域网音频：
 - 连接：`ws://电脑IP:23333/ws?k=访问码`，或任意路径 + 请求头 `X-SQ-Key: 访问码`（App 用 Bonjour 端点连接时）。访问码错误 → 关闭码 4001。
 - 电脑 → 手机：二进制帧 `[1][flags][0][0][seq u32 LE]` + 10 ms 的 48 kHz 双声道 16 位 PCM（flags bit0 = 静音）。
 - 手机 → 电脑：二进制帧 `[2][flags][0][0][seq u32 LE]` + 单声道 16 位 PCM（采样率在 config 里给出）。
-- 文本消息：`hello`（电脑名、id、采样率）、`config`（`listen`、`mic`、`micRate`）、`status`（麦克风输出状态，每秒一次）、`ping`/`pong`、`stats`。
+- 文本消息：`hello`（电脑名、id、采样率）、`config`（`listen`、`mic`、`micRate`、`denoise`）、`status`（麦克风输出状态，每秒一次）、`ping`/`pong`、`stats`。
 - Bonjour 服务类型 `_shengqiao._tcp`，TXT：`id`（电脑固定 id）、`name`（电脑名）。
+
+## 降噪与回声消除
+
+- 降噪在电脑端（`pc/app/denoise.py`），48 kHz、每帧 10 ms，可选：关闭 / 轻度（频谱减法，最小值跟踪噪声估计）/
+  RNNoise（[xiph/rnnoise](https://github.com/xiph/rnnoise) 0.2 正式版，BSD 许可，`pc/app/lib/` 里是用 MinGW 从发布包源码编译的 DLL，
+  见 `RNNOISE-VERSION.txt`）/ 强力（RNNoise + 基于人声概率的噪声门）。App 用 `config.denoise` 选择，`status.mic.denoise` 回报。
+- 回声消除在 iPhone 端：AVAudioEngine 输入节点的系统语音处理（`setVoiceProcessingEnabled`），参考信号就是 App 自己播放的电脑声音。
+- 测试：`python3 pc/tests/test_denoise.py`（合成语音 + 白噪声/风扇/键盘，量停顿压低多少、人声保留多少），
+  `pc/tests/test_denoise_e2e.py`（经网络、抖动缓冲到虚拟声卡的完整链路）。
 
 ## 抖动缓冲
 

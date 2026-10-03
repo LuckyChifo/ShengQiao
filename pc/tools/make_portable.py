@@ -59,7 +59,7 @@ def main():
             if f.endswith('.lib') and 'numpy' in root:
                 os.remove(os.path.join(root, f))
     shutil.copytree(os.path.join(PC, 'app'), os.path.join(dst, 'app'),
-                    ignore=shutil.ignore_patterns('__pycache__', '*.pyc'))
+                    ignore=shutil.ignore_patterns('__pycache__', '*.pyc', '*.so', '*.dylib'))
     crlf(os.path.join(PC, 'app', 'python312._pth'), os.path.join(dst, 'app', 'python312._pth'))
     crlf(os.path.join(PC, 'start.bat'), os.path.join(dst, 'start.bat'))
     for bat in ('firewall.bat', 'selftest.bat', 'debug.bat'):

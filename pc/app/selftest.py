@@ -90,7 +90,7 @@ def main():
     if cable_in and cable_out:
         try:
             import mic as micmod
-            sink = micmod.MicSink(micmod.SoundcardOutput(), 'auto')
+            sink = micmod.MicSink(micmod.SoundcardOutput(), 'auto', 'off')    # 测试音会被降噪当成噪声，先关掉
             owner = object()
             sink.start(owner, 48000)
             rec_holder = {}
@@ -191,6 +191,12 @@ def main():
         result('找到局域网地址', bool(ips), '、'.join(ips[:4]) if ips else '请连上 Wi-Fi 或手机热点')
     except Exception as e:
         result('网络', False, repr(e))
+    try:
+        import denoise
+        lib = denoise.load_rnnoise()
+        result('RNNoise 降噪库', lib is not None, '' if lib is not None else str(denoise._lib_error))
+    except Exception as e:
+        result('RNNoise 降噪库', False, repr(e))
     try:
         import zeroconf  # noqa: F401
         result('Bonjour（App 自动发现电脑）组件', True)
