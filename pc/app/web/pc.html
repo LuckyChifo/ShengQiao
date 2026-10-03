@@ -1,0 +1,301 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="/icon-180.png">
+<title>声桥 · 电脑端</title>
+<style>
+:root {
+  --walnut: #1c1612;
+  --cabinet: #2a211b;
+  --cabinet-2: #352a22;
+  --parchment: #f3e3c3;
+  --parchment-ink: #2b1d12;
+  --amber: #ffb547;
+  --needle: #a8301c;
+  --text: #f1e6d6;
+  --muted: #a8957f;
+  --line: #3d3128;
+  --danger: #ff8a6b;
+  --font-ui: "Microsoft YaHei UI", "Microsoft YaHei", -apple-system, "PingFang SC", sans-serif;
+  --font-num: Futura, "Century Gothic", "Avenir Next", "Segoe UI", sans-serif;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; background: var(--walnut); color: var(--text); }
+body { font-family: var(--font-ui); font-size: 15px; line-height: 1.55; }
+button, select, input { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--amber); outline-offset: 3px; }
+.wrap { max-width: 1000px; margin: 0 auto; padding: 28px 24px 40px; }
+header { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 22px; }
+h1 { margin: 0; font-size: 24px; font-weight: 600; letter-spacing: .1em; }
+h1 small { font-size: 15px; font-weight: 400; letter-spacing: 0; color: var(--muted); margin-left: 12px; }
+.state { display: flex; align-items: center; gap: 8px; color: var(--muted); }
+.lamp { width: 10px; height: 10px; border-radius: 50%; background: #4a3b30; }
+.lamp.on { background: var(--amber); box-shadow: 0 0 10px 2px rgba(255, 181, 71, .5); }
+.lamp.warn { background: var(--danger); }
+
+.grid { display: grid; grid-template-columns: minmax(280px, 360px) 1fr; gap: 28px; align-items: start; }
+@media (max-width: 760px) { .grid { grid-template-columns: 1fr; } }
+
+.scan { background: var(--cabinet); border-radius: 22px; padding: 22px; }
+.scan h2 { margin: 0 0 4px; font-size: 18px; font-weight: 600; }
+.scan p { margin: 0; color: var(--muted); font-size: 14px; }
+.plate { margin: 16px 0 14px; background: var(--parchment); border-radius: 16px; padding: 14px; }
+.plate img { display: block; width: 100%; height: auto; aspect-ratio: 1; image-rendering: pixelated; }
+.url { font-family: Consolas, "Cascadia Mono", monospace; font-size: 14px; word-break: break-all; color: var(--text); }
+.row-btns { display: flex; gap: 10px; margin-top: 12px; flex-wrap: wrap; }
+.btn { border: 0; border-radius: 10px; padding: 8px 14px; background: var(--cabinet-2); cursor: pointer; }
+.btn.primary { background: var(--amber); color: var(--walnut); font-weight: 600; }
+.btn:disabled { opacity: .5; cursor: default; }
+.keyline { margin-top: 14px; color: var(--muted); font-size: 14px; }
+.keyline b { font-family: var(--font-num); font-size: 20px; letter-spacing: .15em; color: var(--amber); font-weight: 500; margin-left: 6px; }
+.alts { margin-top: 16px; border-top: 1px solid var(--line); padding-top: 12px; font-size: 14px; color: var(--muted); }
+.alts button { display: block; width: 100%; text-align: left; border: 0; background: transparent; padding: 5px 0; color: var(--text);
+  font-family: Consolas, "Cascadia Mono", monospace; font-size: 13px; cursor: pointer; }
+.alts button[aria-current="true"] { color: var(--amber); }
+
+section.panel { padding: 4px 0 18px; border-bottom: 1px solid var(--line); margin-bottom: 18px; }
+section.panel:last-child { border-bottom: 0; }
+.panel h2 { margin: 0 0 10px; font-size: 16px; font-weight: 600; }
+.panel p { margin: 6px 0; color: var(--muted); font-size: 14px; }
+select { width: 100%; padding: 9px 10px; border-radius: 10px; border: 1px solid var(--line); background: var(--cabinet); }
+.meter { margin-top: 14px; height: 14px; border-radius: 7px; background: var(--cabinet); overflow: hidden; position: relative; }
+.meter i { position: absolute; inset: 0 auto 0 0; width: 0; background: linear-gradient(90deg, #c98a2e, var(--amber) 70%, #ff7a52); transition: width .12s linear; }
+.meter-legend { display: flex; justify-content: space-between; font-family: var(--font-num); font-size: 12px; color: var(--muted); margin-top: 4px; }
+.err { color: var(--danger) !important; }
+table { width: 100%; border-collapse: collapse; font-size: 14px; }
+th { text-align: left; font-weight: 400; color: var(--muted); padding: 6px 8px 6px 0; border-bottom: 1px solid var(--line); }
+td { padding: 8px 8px 8px 0; border-bottom: 1px solid var(--line); }
+td.num { font-family: var(--font-num); }
+.empty { color: var(--muted); font-size: 14px; }
+ol.tips { margin: 6px 0 0; padding-left: 20px; color: var(--muted); font-size: 14px; }
+ol.tips li { margin: 6px 0; }
+ol.tips b { color: var(--text); font-weight: 600; }
+.warn { color: var(--danger) !important; }
+label.sub { display: block; margin: 14px 0 6px; color: var(--muted); font-size: 14px; }
+.mono { font-family: Consolas, "Cascadia Mono", monospace; font-weight: 400; color: var(--text); }
+details summary { cursor: pointer; color: var(--muted); }
+pre.log { max-height: 260px; overflow: auto; margin: 10px 0 0; padding: 10px 12px; border-radius: 10px;
+  background: var(--cabinet); font-family: Consolas, "Cascadia Mono", monospace; font-size: 12.5px;
+  line-height: 1.5; white-space: pre-wrap; color: var(--muted); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>声桥<small>电脑端</small></h1>
+    <div class="state"><span class="lamp" id="lamp"></span><span id="stateText">连接中…</span></div>
+  </header>
+
+  <div class="grid">
+    <div class="scan">
+      <h2>用 iPhone 扫码连接</h2>
+      <p>手机和这台电脑要在同一个 Wi-Fi 下。在声桥 App 里点“扫码连接”；没装 App 的话，用相机扫码也能在 Safari 里收听。</p>
+      <div class="plate"><img id="qr" alt="收听网址的二维码"></div>
+      <div class="url" id="url">—</div>
+      <div class="row-btns">
+        <button class="btn" id="copy">复制网址</button>
+      </div>
+      <div class="keyline" id="keyline" hidden>访问码<b id="key"></b></div>
+      <div class="alts" id="altsBox" hidden>
+        手机打不开？换个地址试试：
+        <div id="alts"></div>
+      </div>
+    </div>
+
+    <div>
+      <section class="panel">
+        <h2>采集哪个设备的声音</h2>
+        <select id="device" aria-label="采集的输出设备"></select>
+        <p id="source"></p>
+        <div class="meter" aria-hidden="true"><i id="bar"></i></div>
+        <div class="meter-legend"><span>-60 dB</span><span>-30</span><span>0 dB</span></div>
+        <p id="levelHint"></p>
+        <div class="row-btns"><button class="btn primary" id="chime">给手机发个测试音</button></div>
+      </section>
+
+      <section class="panel">
+        <h2>手机当麦克风</h2>
+        <p id="micState">—</p>
+        <div class="meter" aria-hidden="true"><i id="micBar"></i></div>
+        <div class="meter-legend"><span>-60 dB</span><span>-30</span><span>0 dB</span></div>
+        <p class="warn" id="conflict" hidden>采集的设备和麦克风写入的设备是同一个，手机会听到自己的声音。请在上面把采集设备换成你的扬声器或耳机。</p>
+        <label class="sub" for="micDevice">麦克风声音写到</label>
+        <select id="micDevice" aria-label="麦克风声音写到哪个设备"></select>
+        <p>在 QQ、微信、腾讯会议、OBS 等软件里，把麦克风选成 <b class="mono">CABLE Output (VB-Audio Virtual Cable)</b>。</p>
+      </section>
+
+      <section class="panel">
+        <h2 id="lsTitle">连着的手机</h2>
+        <div id="listeners"><p class="empty">还没有手机连上。</p></div>
+      </section>
+
+      <section class="panel">
+        <details>
+          <summary>运行日志</summary>
+          <pre class="log" id="log"></pre>
+        </details>
+      </section>
+
+      <section class="panel">
+        <h2>手机连不上？</h2>
+        <ol class="tips">
+          <li><b>防火墙</b>：首次运行时 Windows 会问要不要允许访问，两个网络类型都勾上点“允许”。错过了就运行文件夹里的 firewall.bat。</li>
+          <li><b>App 里看不到电脑</b>：首次打开 App 时要允许“查找本地网络上的设备”；也可以直接扫码连接。</li>
+          <li><b>同一个网络</b>：手机要连电脑所在的 Wi-Fi，不能用流量。校园网、酒店 Wi-Fi 常常禁止设备互访，这时让电脑连手机的个人热点就行。</li>
+          <li><b>代理/VPN</b>：Clash 等软件的 TUN 模式偶尔会挡住局域网访问，可暂时关掉试试。</li>
+          <li><b>电脑不想出声</b>：有些声卡静音或调小电脑音量后，手机也会跟着没声或变小（手机端音量可拉到 200% 补回）。注意：VB-CABLE 用来当麦克风时，<b>不要</b>把它设成 Windows 默认输出，否则电脑的声音会混进麦克风。</li>
+          <li><b>用蓝牙耳机</b>：AirPods 等蓝牙耳机本身有 0.15–0.25 秒延迟，看视频对不上口型属正常。</li>
+        </ol>
+      </section>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+  var $ = function (id) { return document.getElementById(id); };
+  var current = '', devicesLoaded = false, lastErrAt = 0;
+
+  function setQr(url) {
+    if (!url || url === current) return;
+    current = url;
+    $('qr').src = '/api/qr.svg?u=' + encodeURIComponent(url);
+    $('url').textContent = url;
+    var bs = $('alts').querySelectorAll('button');
+    for (var i = 0; i < bs.length; i++) bs[i].setAttribute('aria-current', bs[i].getAttribute('data-u') === url ? 'true' : 'false');
+  }
+
+  $('copy').addEventListener('click', function () {
+    if (!current) return;
+    var done = function () { $('copy').textContent = '已复制'; setTimeout(function () { $('copy').textContent = '复制网址'; }, 1500); };
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(current).then(done, function () {});
+  });
+  $('chime').addEventListener('click', function () {
+    $('chime').disabled = true;
+    fetch('/api/chime', { method: 'POST' }).finally(function () { setTimeout(function () { $('chime').disabled = false; }, 1400); });
+  });
+  $('device').addEventListener('change', function () {
+    fetch('/api/device', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: $('device').value }) });
+  });
+  $('micDevice').addEventListener('change', function () {
+    fetch('/api/mic-device', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: $('micDevice').value }) });
+  });
+  var micDevsLoaded = false;
+  function loadMicDevices() {
+    fetch('/api/mic-devices', { cache: 'no-store' }).then(function (r) { return r.json(); }).then(function (d) {
+      var cable = null, html = '';
+      (d.devices || []).forEach(function (dev) { if (dev.id === d.cable) cable = dev; });
+      html += '<option value="auto">自动：' + (cable ? esc(cable.name) : '没找到 VB-CABLE') + '</option>';
+      (d.devices || []).forEach(function (dev) { html += '<option value="' + esc(dev.id) + '">' + esc(dev.name) + '</option>'; });
+      $('micDevice').innerHTML = html;
+      $('micDevice').value = d.selected || 'auto';
+      if (!$('micDevice').value) $('micDevice').value = 'auto';
+      micDevsLoaded = true;
+    }).catch(function () {});
+  }
+
+  function loadDevices() {
+    fetch('/api/devices', { cache: 'no-store' }).then(function (r) { return r.json(); }).then(function (d) {
+      var sel = $('device'), html = '<option value="default">跟随系统默认输出设备</option>';
+      (d.devices || []).forEach(function (dev) {
+        var o = document.createElement('option');
+        o.value = dev.id; o.textContent = dev.name + (dev.default ? '（当前默认）' : '');
+        html += o.outerHTML;
+      });
+      sel.innerHTML = html;
+      sel.value = d.selected || 'default';
+      if (sel.value !== (d.selected || 'default')) sel.value = 'default';
+      devicesLoaded = true;
+    }).catch(function () {});
+  }
+
+  function fmtSince(t) {
+    var s = Math.max(0, Date.now() / 1000 - t);
+    if (s < 60) return Math.round(s) + ' 秒';
+    if (s < 3600) return Math.round(s / 60) + ' 分钟';
+    return (s / 3600).toFixed(1) + ' 小时';
+  }
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+
+  function poll() {
+    fetch('/api/status', { cache: 'no-store' }).then(function (r) { return r.json(); }).then(function (s) {
+      if (!devicesLoaded) loadDevices();
+      if (!micDevsLoaded) loadMicDevices();
+      var urls = s.urls || [];
+      var alts = urls.slice(0, 6).concat(s.localUrl ? [s.localUrl] : []);
+      $('altsBox').hidden = alts.length < 2;
+      var altHtml = alts.map(function (u) { return '<button data-u="' + esc(u) + '">' + esc(u) + '</button>'; }).join('');
+      if ($('alts').getAttribute('data-h') !== altHtml) {
+        $('alts').innerHTML = altHtml; $('alts').setAttribute('data-h', altHtml);
+        var bs = $('alts').querySelectorAll('button');
+        for (var i = 0; i < bs.length; i++) bs[i].addEventListener('click', function (e) { setQr(e.currentTarget.getAttribute('data-u')); });
+        var keep = current; current = '';
+        setQr(alts.indexOf(keep) >= 0 ? keep : alts[0]);
+      }
+      if (!urls.length) { $('url').textContent = '没找到局域网地址：请先连上 Wi-Fi 或手机热点。'; $('url').classList.add('err'); }
+      else $('url').classList.remove('err');
+      $('keyline').hidden = !s.key;
+      $('key').textContent = s.key || '';
+
+      var lamp = $('lamp'), st = $('stateText');
+      var n = (s.listeners || []).length;
+      if (s.state === 'error') { lamp.className = 'lamp warn'; st.textContent = '采集出错，正在重试'; }
+      else if (n) { lamp.className = 'lamp on'; st.textContent = n + ' 台手机已连接'; }
+      else { lamp.className = 'lamp'; st.textContent = '等待手机连接'; }
+
+      $('source').textContent = s.state === 'error' ? ('出错：' + s.error) :
+        ('正在采集：' + (s.device || '…'));
+      $('source').classList.toggle('err', s.state === 'error');
+      var db = s.level > 0 ? 20 * Math.log10(s.level) : -90;
+      var pct = Math.max(0, Math.min(100, (db + 60) / 60 * 100));
+      $('bar').style.width = pct + '%';
+      $('levelHint').textContent = s.level > 0.001 ? '有声音，电平条在动就说明采集正常。'
+        : '现在没有声音。放点音乐，电平条应该会动；如果放了也不动，检查一下上面选的设备对不对。';
+
+      var m = s.mic || {};
+      var micMsg;
+      if (m.state === 'no-cable') micMsg = '没找到 VB-CABLE。装好 VB-CABLE 后重新打开声桥，或在下面手动选一个输出设备。';
+      else if (m.state === 'error') micMsg = '麦克风输出出错：' + (m.error || '');
+      else if (m.active && m.state === 'running') micMsg = '正在接收手机麦克风 → ' + m.device + '，延迟约 ' + m.latencyMs + ' 毫秒';
+      else if (m.active) micMsg = '正在打开 ' + (m.device || '输出设备') + '…';
+      else micMsg = '没有手机开麦。在 iPhone 的声桥 App 里打开“当麦克风”。';
+      $('micState').textContent = micMsg;
+      $('micState').classList.toggle('err', m.state === 'no-cable' || m.state === 'error');
+      var mdb = m.level > 0 ? 20 * Math.log10(m.level) : -90;
+      $('micBar').style.width = (m.active ? Math.max(0, Math.min(100, (mdb + 60) / 60 * 100)) : 0) + '%';
+      $('conflict').hidden = !s.conflict;
+      var logEl = $('log'), logTxt = (s.log || []).join('\n');
+      if (logEl.getAttribute('data-n') !== String(logTxt.length)) {
+        var atBottom = logEl.scrollTop + logEl.clientHeight >= logEl.scrollHeight - 4;
+        logEl.textContent = logTxt; logEl.setAttribute('data-n', String(logTxt.length));
+        if (atBottom) logEl.scrollTop = logEl.scrollHeight;
+      }
+
+      $('lsTitle').textContent = '连着的手机' + (n ? '（' + n + '）' : '');
+      if (!n) $('listeners').innerHTML = '<p class="empty">还没有手机连上。</p>';
+      else {
+        var rows = s.listeners.map(function (c) {
+          var roles = [];
+          if (c.listen) roles.push(c.mode === 'bg' ? '收听（网页锁屏模式）' : '收听');
+          if (c.mic) roles.push('麦克风');
+          var mode = roles.join(' + ') || '已连接';
+          var lat = c.mode === 'bg' ? '约 2–5 秒' : (c.latency ? c.latency + ' 毫秒' : '—');
+          var und = c.mode === 'bg' || c.underruns == null ? '—' : c.underruns;
+          return '<tr><td>' + esc(c.device) + '</td><td class="num">' + esc(c.ip) + '</td><td>' + mode +
+            '</td><td class="num">' + esc(lat) + '</td><td class="num">' + esc(und) + '</td><td>' + fmtSince(c.since) + '</td></tr>';
+        }).join('');
+        $('listeners').innerHTML = '<table><thead><tr><th>设备</th><th>地址</th><th>在用</th><th>延迟</th><th>卡顿</th><th>已连接</th></tr></thead><tbody>' + rows + '</tbody></table>';
+      }
+    }).catch(function () {
+      if (Date.now() - lastErrAt > 1000) { $('lamp').className = 'lamp warn'; $('stateText').textContent = '声桥程序没在运行'; lastErrAt = Date.now(); }
+    });
+  }
+  poll();
+  setInterval(poll, 400);
+})();
+</script>
+</body>
+</html>

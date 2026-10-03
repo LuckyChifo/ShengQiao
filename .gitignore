@@ -1,0 +1,12 @@
+pc/config.json
+pc/running.json
+pc/log.txt*
+__pycache__/
+*.pyc
+.DS_Store
+ios/build/
+ios/DerivedData/
+xcuserdata/
+*.xcuserstate
+pc/tests/*.mp3
+selftest.txt

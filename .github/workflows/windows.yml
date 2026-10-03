@@ -1,0 +1,57 @@
+# Windows：单元测试 + 装 VB-CABLE 后用真实 WASAPI 自检 + 打包 exe
+# （这份配置还没在 GitHub 上跑过；第一次跑如果有步骤失败，按日志改）
+name: windows
+on: [push, workflow_dispatch]
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r pc/requirements.txt pyinstaller
+      - name: Jitter buffer simulations
+        run: python pc/tests/test_mic_core.py
+      - name: Install VB-CABLE and start Windows Audio
+        continue-on-error: true
+        shell: pwsh
+        run: |
+          Invoke-WebRequest https://download.vb-audio.com/Download_CABLE/VBCABLE_Driver_Pack45.zip -OutFile vb.zip
+          Expand-Archive vb.zip -DestinationPath vb
+          # 先信任驱动发布者证书，静默安装才不会弹窗
+          $cat = Get-ChildItem vb -Filter *.cat -Recurse | Select-Object -First 1
+          $cert = (Get-AuthenticodeSignature $cat.FullName).SignerCertificate
+          $store = New-Object System.Security.Cryptography.X509Certificates.X509Store('TrustedPublisher', 'LocalMachine')
+          $store.Open('ReadWrite'); $store.Add($cert); $store.Close()
+          Start-Process -FilePath vb\VBCABLE_Setup_x64.exe -ArgumentList '-i','-h' -Wait
+          Set-Service -Name Audiosrv -StartupType Automatic
+          Start-Service Audiosrv
+          Start-Sleep -Seconds 5
+      - name: Real audio self-test (WASAPI loopback + VB-CABLE mic path)
+        continue-on-error: true
+        run: python pc/app/selftest.py
+      - name: Protocol tests against the real server
+        shell: pwsh
+        run: |
+          $p = Start-Process python -ArgumentList 'pc/app/server.py','--no-tray','--no-browser','--source','tone','--mic-out','fake','--debug' -PassThru
+          Start-Sleep -Seconds 6
+          $key = (Get-Content pc/config.json | ConvertFrom-Json).key
+          $ip = (Get-NetIPAddress -AddressFamily IPv4 | Where-Object { $_.IPAddress -notlike '127.*' } | Select-Object -First 1).IPAddress
+          python pc/tests/test_protocol.py $ip 23333 $key
+          $code = $LASTEXITCODE
+          Stop-Process -Id $p.Id
+          exit $code
+      - name: Build exe
+        run: pyinstaller pc/shengqiao.spec --noconfirm --distpath dist --workpath build
+      - name: Smoke-test the exe
+        shell: pwsh
+        run: |
+          $p = Start-Process dist/ShengQiao/ShengQiao.exe -ArgumentList '--no-tray','--no-browser','--source','tone','--port','23400' -PassThru
+          Start-Sleep -Seconds 8
+          Invoke-WebRequest http://127.0.0.1:23400/pc -UseBasicParsing | Select-Object -ExpandProperty StatusCode
+          Stop-Process -Id $p.Id
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ShengQiao-Windows-exe
+          path: dist/ShengQiao

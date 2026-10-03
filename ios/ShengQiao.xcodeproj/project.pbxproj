@@ -1,0 +1,355 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 56;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		B18041F354E2BE9031A0F7AE /* ShengQiaoApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = E3489123073B115BE68E9375 /* ShengQiaoApp.swift */; };
+		7B174DCA43B05683FE5B7E68 /* AudioController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 46331AAD26BD6AA388AD0AA9 /* AudioController.swift */; };
+		3793EB729AD150B6DD628183 /* sq_core.c in Sources */ = {isa = PBXBuildFile; fileRef = A9FB9A69371B0F8B7E2A26E2 /* sq_core.c */; };
+		0835A619093BDE2BB579786F /* AppModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = CF6F2BC94B44A2CB664C1771 /* AppModel.swift */; };
+		B47DA0033364433CC60CEB3D /* Connection.swift in Sources */ = {isa = PBXBuildFile; fileRef = F470839094559821B9120D39 /* Connection.swift */; };
+		F597F65AE7B9628198A2FC66 /* Discovery.swift in Sources */ = {isa = PBXBuildFile; fileRef = 501CBC22E0AB1804551A77FD /* Discovery.swift */; };
+		D3991D9C9738AB8B460ADD3E /* ConnectView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00C84D0C633E06976BE0537E /* ConnectView.swift */; };
+		B28B9AEDC1F2761BAF942667 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 16316DFEAA5593265EE1383B /* ContentView.swift */; };
+		44E3A7922BC9F11A12EF9EF8 /* MeterView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8FD8310F5BD655FA9217698E /* MeterView.swift */; };
+		31D37A2DFBA58DE523098A53 /* QRScannerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3899CEA4ECA872EAD8A08AD0 /* QRScannerView.swift */; };
+		FF798D5C63A90EE82E111E79 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 375C1AC18D9A4E3E41E0459B /* Theme.swift */; };
+		BEB96CE5F52A9119780B494C /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = DCE498C0536AFA6C6A77EB68 /* Assets.xcassets */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		8FC94AAB19F25AAFFDE873A6 /* ShengQiao.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ShengQiao.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		DCE498C0536AFA6C6A77EB68 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		D611EE345987BB4EBE8CCC43 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		E3489123073B115BE68E9375 /* ShengQiaoApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShengQiaoApp.swift; sourceTree = "<group>"; };
+		46331AAD26BD6AA388AD0AA9 /* AudioController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioController.swift; sourceTree = "<group>"; };
+		9FB3E29F07574E71D3731623 /* ShengQiao-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "ShengQiao-Bridging-Header.h"; sourceTree = "<group>"; };
+		A9FB9A69371B0F8B7E2A26E2 /* sq_core.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = sq_core.c; sourceTree = "<group>"; };
+		771D662D42660EB61FBFB11C /* sq_core.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = sq_core.h; sourceTree = "<group>"; };
+		CF6F2BC94B44A2CB664C1771 /* AppModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppModel.swift; sourceTree = "<group>"; };
+		F470839094559821B9120D39 /* Connection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Connection.swift; sourceTree = "<group>"; };
+		501CBC22E0AB1804551A77FD /* Discovery.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Discovery.swift; sourceTree = "<group>"; };
+		00C84D0C633E06976BE0537E /* ConnectView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectView.swift; sourceTree = "<group>"; };
+		16316DFEAA5593265EE1383B /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		8FD8310F5BD655FA9217698E /* MeterView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeterView.swift; sourceTree = "<group>"; };
+		3899CEA4ECA872EAD8A08AD0 /* QRScannerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QRScannerView.swift; sourceTree = "<group>"; };
+		375C1AC18D9A4E3E41E0459B /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		C18F88D444D8FE65E18D39E9 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		4EAE695AD1F489F78EA3E1C6 = {
+			isa = PBXGroup;
+			children = (
+				93D84F32D3824B9495BECB11 /* ShengQiao */,
+				1D5F545FBA1B7116946BB4C6 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		1D5F545FBA1B7116946BB4C6 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				8FC94AAB19F25AAFFDE873A6 /* ShengQiao.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		93D84F32D3824B9495BECB11 /* ShengQiao */ = {
+			isa = PBXGroup;
+			children = (
+				DCE498C0536AFA6C6A77EB68 /* Assets.xcassets */,
+				8860B338F8D0287F492164D9 /* Audio */,
+				0CEB36338F51140592FBD9D5 /* Model */,
+				8488428775D179D5C387F8D4 /* Net */,
+				E621D0C37ABDCAFF0EF082F0 /* UI */,
+				D611EE345987BB4EBE8CCC43 /* Info.plist */,
+				E3489123073B115BE68E9375 /* ShengQiaoApp.swift */,
+			);
+			path = ShengQiao;
+			sourceTree = "<group>";
+		};
+		8860B338F8D0287F492164D9 /* Audio */ = {
+			isa = PBXGroup;
+			children = (
+				46331AAD26BD6AA388AD0AA9 /* AudioController.swift */,
+				9FB3E29F07574E71D3731623 /* ShengQiao-Bridging-Header.h */,
+				A9FB9A69371B0F8B7E2A26E2 /* sq_core.c */,
+				771D662D42660EB61FBFB11C /* sq_core.h */,
+			);
+			path = Audio;
+			sourceTree = "<group>";
+		};
+		0CEB36338F51140592FBD9D5 /* Model */ = {
+			isa = PBXGroup;
+			children = (
+				CF6F2BC94B44A2CB664C1771 /* AppModel.swift */,
+			);
+			path = Model;
+			sourceTree = "<group>";
+		};
+		8488428775D179D5C387F8D4 /* Net */ = {
+			isa = PBXGroup;
+			children = (
+				F470839094559821B9120D39 /* Connection.swift */,
+				501CBC22E0AB1804551A77FD /* Discovery.swift */,
+			);
+			path = Net;
+			sourceTree = "<group>";
+		};
+		E621D0C37ABDCAFF0EF082F0 /* UI */ = {
+			isa = PBXGroup;
+			children = (
+				00C84D0C633E06976BE0537E /* ConnectView.swift */,
+				16316DFEAA5593265EE1383B /* ContentView.swift */,
+				8FD8310F5BD655FA9217698E /* MeterView.swift */,
+				3899CEA4ECA872EAD8A08AD0 /* QRScannerView.swift */,
+				375C1AC18D9A4E3E41E0459B /* Theme.swift */,
+			);
+			path = UI;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		3F61B2179DC1B674CDA3B28D /* ShengQiao */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = E589D98E9C10B6E6EF092B1C /* Build configuration list for PBXNativeTarget "ShengQiao" */;
+			buildPhases = (
+				C4D5163706E5908DC9E032F3 /* Sources */,
+				C18F88D444D8FE65E18D39E9 /* Frameworks */,
+				4FDAD6DB49035FA75C21467D /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = ShengQiao;
+			productName = ShengQiao;
+			productReference = 8FC94AAB19F25AAFFDE873A6 /* ShengQiao.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		46F86FAA6BBF9AC94A7E4595 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 1600;
+				LastUpgradeCheck = 1600;
+				TargetAttributes = {
+					3F61B2179DC1B674CDA3B28D = {
+						CreatedOnToolsVersion = 16.0;
+					};
+				};
+			};
+			buildConfigurationList = B61A476A5531CC175278BDCF /* Build configuration list for PBXProject "ShengQiao" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = "zh-Hans";
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+				"zh-Hans",
+			);
+			mainGroup = 4EAE695AD1F489F78EA3E1C6;
+			productRefGroup = 1D5F545FBA1B7116946BB4C6 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				3F61B2179DC1B674CDA3B28D /* ShengQiao */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		4FDAD6DB49035FA75C21467D /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				BEB96CE5F52A9119780B494C /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		C4D5163706E5908DC9E032F3 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				B18041F354E2BE9031A0F7AE /* ShengQiaoApp.swift in Sources */,
+				7B174DCA43B05683FE5B7E68 /* AudioController.swift in Sources */,
+				3793EB729AD150B6DD628183 /* sq_core.c in Sources */,
+				0835A619093BDE2BB579786F /* AppModel.swift in Sources */,
+				B47DA0033364433CC60CEB3D /* Connection.swift in Sources */,
+				F597F65AE7B9628198A2FC66 /* Discovery.swift in Sources */,
+				D3991D9C9738AB8B460ADD3E /* ConnectView.swift in Sources */,
+				B28B9AEDC1F2761BAF942667 /* ContentView.swift in Sources */,
+				44E3A7922BC9F11A12EF9EF8 /* MeterView.swift in Sources */,
+				31D37A2DFBA58DE523098A53 /* QRScannerView.swift in Sources */,
+				FF798D5C63A90EE82E111E79 /* Theme.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		80DB6ACE13380ADC3D86D6C5 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		08723DE70035A45CE7E33CC1 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		B373EA90B6F23CCAEDAF6FEE /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				ENABLE_PREVIEWS = YES;
+				GCC_OPTIMIZATION_LEVEL = s;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = ShengQiao/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 2.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.shengqiao.app.x7k2;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_OBJC_BRIDGING_HEADER = "ShengQiao/Audio/ShengQiao-Bridging-Header.h";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+		03DD51312A9DE8E4A570DD7D /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				ENABLE_PREVIEWS = YES;
+				GCC_OPTIMIZATION_LEVEL = s;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = ShengQiao/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 2.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.shengqiao.app.x7k2;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_OBJC_BRIDGING_HEADER = "ShengQiao/Audio/ShengQiao-Bridging-Header.h";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		B61A476A5531CC175278BDCF /* Build configuration list for PBXProject "ShengQiao" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				80DB6ACE13380ADC3D86D6C5 /* Debug */,
+				08723DE70035A45CE7E33CC1 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		E589D98E9C10B6E6EF092B1C /* Build configuration list for PBXNativeTarget "ShengQiao" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				B373EA90B6F23CCAEDAF6FEE /* Debug */,
+				03DD51312A9DE8E4A570DD7D /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 46F86FAA6BBF9AC94A7E4595 /* Project object */;
+}

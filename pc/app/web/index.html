@@ -1,0 +1,727 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="声桥">
+<meta name="theme-color" content="#1c1612">
+<meta name="format-detection" content="telephone=no">
+<link rel="apple-touch-icon" href="/icon-180.png">
+<link rel="icon" href="/icon-180.png">
+<title>声桥</title>
+<style>
+:root {
+  --walnut: #1c1612;
+  --cabinet: #2a211b;
+  --cabinet-2: #352a22;
+  --parchment: #f3e3c3;
+  --parchment-ink: #2b1d12;
+  --amber: #ffb547;
+  --needle: #a8301c;
+  --text: #f1e6d6;
+  --muted: #a8957f;
+  --line: #3d3128;
+  --danger: #ff8a6b;
+  --font-ui: -apple-system, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  --font-num: Futura, "Century Gothic", "Avenir Next", -apple-system, "PingFang SC", sans-serif;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; background: var(--walnut); color: var(--text); }
+body {
+  font-family: var(--font-ui);
+  font-size: 16px;
+  line-height: 1.5;
+  -webkit-text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
+  min-height: 100vh;
+}
+button, input { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 2px solid var(--amber); outline-offset: 3px; }
+
+.app {
+  max-width: 440px;
+  margin: 0 auto;
+  padding: calc(env(safe-area-inset-top) + 14px) 18px calc(env(safe-area-inset-bottom) + 28px);
+}
+
+/* header */
+.top { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
+.top h1 { margin: 0; font-size: 24px; font-weight: 600; letter-spacing: 0.12em; }
+.conn { margin: 0; display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--muted); min-width: 0; }
+.conn span:last-child { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 200px; }
+.lamp { width: 9px; height: 9px; border-radius: 50%; background: #4a3b30; flex: none; transition: background .3s, box-shadow .3s; }
+.lamp.on { background: var(--amber); box-shadow: 0 0 10px 2px rgba(255, 181, 71, .55); }
+.lamp.warn { background: var(--danger); }
+
+/* dial */
+.dial {
+  position: relative;
+  border-radius: 22px;
+  padding: 10px;
+  background: linear-gradient(180deg, #3a2e25, #261e18);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .06), 0 10px 30px rgba(0, 0, 0, .35);
+}
+.dial svg { display: block; width: 100%; height: auto; border-radius: 14px; }
+.scale-num { font-family: var(--font-num); font-size: 13px; fill: var(--parchment-ink); }
+.scale-red { fill: var(--needle); }
+.dial-name { font-family: var(--font-num); font-size: 11px; letter-spacing: .08em; fill: #8c7558; }
+
+/* transport */
+.transport { text-align: center; margin: 26px 0 8px; }
+.play {
+  width: 132px; height: 132px; border-radius: 50%;
+  border: 2px solid rgba(255, 181, 71, .45);
+  background: radial-gradient(circle at 50% 35%, var(--cabinet-2), var(--cabinet));
+  display: inline-grid; place-items: center;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, .4);
+  transition: background .25s, box-shadow .25s, border-color .25s, transform .1s;
+}
+.play:active { transform: scale(.97); }
+.play .icon {
+  width: 0; height: 0; margin-left: 10px;
+  border-left: 38px solid var(--amber);
+  border-top: 24px solid transparent; border-bottom: 24px solid transparent;
+}
+.play.on { background: var(--amber); border-color: var(--amber); box-shadow: 0 0 0 7px rgba(255, 181, 71, .14), 0 0 40px rgba(255, 181, 71, .35); }
+.play.on .icon { margin: 0; width: 34px; height: 34px; border: 0; border-radius: 6px; background: var(--walnut); }
+.play-label { margin: 14px 0 2px; font-size: 18px; font-weight: 600; }
+.status { margin: 0 auto; max-width: 30em; min-height: 3em; font-size: 15px; color: var(--muted); }
+.status.alert { color: var(--danger); }
+
+/* controls */
+.controls { margin-top: 18px; border-top: 1px solid var(--line); }
+.row { display: flex; align-items: center; gap: 14px; padding: 14px 0 6px; }
+.row .label { flex: none; width: 68px; font-size: 15px; color: var(--muted); }
+.seg { flex: 1; display: flex; background: var(--cabinet); border-radius: 12px; padding: 3px; }
+.seg button {
+  flex: 1; border: 0; background: transparent; padding: 9px 6px; border-radius: 9px;
+  font-size: 15px; color: var(--muted); transition: background .2s, color .2s;
+}
+.seg button[aria-checked="true"] { background: var(--amber); color: var(--walnut); font-weight: 600; }
+.help { margin: 4px 0 6px 82px; font-size: 13px; color: var(--muted); }
+.vol { flex: 1; display: flex; align-items: center; gap: 12px; }
+.vol .num { font-family: var(--font-num); width: 3.2em; text-align: right; font-size: 15px; }
+input[type=range] { -webkit-appearance: none; appearance: none; flex: 1; height: 28px; background: transparent; margin: 0; }
+input[type=range]::-webkit-slider-runnable-track {
+  height: 6px; border-radius: 3px;
+  background: linear-gradient(90deg, var(--amber) var(--fill, 50%), var(--cabinet-2) var(--fill, 50%));
+}
+input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none; width: 24px; height: 24px; border-radius: 50%; margin-top: -9px;
+  background: var(--parchment); border: 0; box-shadow: 0 2px 6px rgba(0, 0, 0, .45);
+}
+input[type=range]::-moz-range-track { height: 6px; border-radius: 3px; background: var(--cabinet-2); }
+input[type=range]::-moz-range-progress { height: 6px; border-radius: 3px; background: var(--amber); }
+input[type=range]::-moz-range-thumb { width: 24px; height: 24px; border-radius: 50%; background: var(--parchment); border: 0; }
+input[type=range]:disabled { opacity: .35; }
+
+details.details { margin-top: 12px; border-top: 1px solid var(--line); padding-top: 10px; }
+details.details summary { font-size: 15px; color: var(--muted); padding: 6px 0; list-style-position: inside; }
+.stats { display: grid; grid-template-columns: auto 1fr; gap: 4px 18px; margin: 8px 0 0; font-size: 14px; }
+.stats dt { color: var(--muted); }
+.stats dd { margin: 0; font-family: var(--font-num); }
+
+/* notes & key */
+.note {
+  margin-top: 22px; padding: 14px 16px; border-radius: 14px;
+  background: var(--cabinet); font-size: 14px; color: var(--text);
+}
+.note p { margin: 0 0 10px; }
+.note .actions { display: flex; gap: 10px; justify-content: flex-end; }
+.btn {
+  border: 0; border-radius: 10px; padding: 9px 16px; font-size: 15px;
+  background: var(--cabinet-2); color: var(--text);
+}
+.btn.primary { background: var(--amber); color: var(--walnut); font-weight: 600; }
+.keyform { display: flex; gap: 10px; margin-top: 12px; }
+.keyform input {
+  flex: 1; min-width: 0; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line);
+  background: var(--walnut); font-family: var(--font-num); font-size: 18px; letter-spacing: .12em;
+}
+
+.overlay {
+  position: fixed; inset: 0; z-index: 10; display: grid; place-items: center; padding: 24px;
+  background: rgba(20, 15, 12, .82); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
+}
+.overlay[hidden], [hidden] { display: none !important; }
+.overlay button {
+  border: 0; border-radius: 16px; padding: 18px 22px; font-size: 17px; font-weight: 600;
+  background: var(--amber); color: var(--walnut); max-width: 320px;
+}
+#keepAwake { position: fixed; right: 0; bottom: 0; width: 2px; height: 2px; opacity: .01; pointer-events: none; }
+@media (prefers-reduced-motion: reduce) {
+  .play, .lamp, .seg button { transition: none; }
+}
+</style>
+</head>
+<body>
+<main class="app">
+  <header class="top">
+    <h1>声桥</h1>
+    <p class="conn"><span class="lamp" id="lamp"></span><span id="connText">正在找电脑…</span></p>
+  </header>
+
+  <section class="dial" aria-label="电平表">
+    <svg id="meter" viewBox="0 0 320 176" role="img" aria-label="正在播放的声音大小">
+      <defs>
+        <linearGradient id="face" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#f7ead0"/>
+          <stop offset="1" stop-color="#e9d3aa"/>
+        </linearGradient>
+        <radialGradient id="glow" cx=".5" cy=".9" r=".9">
+          <stop offset="0" stop-color="#ffcf7a" stop-opacity=".5"/>
+          <stop offset="1" stop-color="#ffcf7a" stop-opacity="0"/>
+        </radialGradient>
+      </defs>
+      <rect x="0" y="0" width="320" height="176" fill="url(#face)"/>
+      <rect id="faceGlow" x="0" y="0" width="320" height="176" fill="url(#glow)" opacity="0"/>
+      <g id="ticks"></g>
+      <text class="dial-name" id="dialName" x="160" y="122" text-anchor="middle"></text>
+      <line id="needle" x1="160" y1="206" x2="160" y2="40" stroke="#a8301c" stroke-width="2.4" stroke-linecap="round"/>
+      <ellipse cx="160" cy="184" rx="58" ry="34" fill="#2a211b"/>
+      <ellipse cx="160" cy="180" rx="58" ry="32" fill="#352a22"/>
+    </svg>
+  </section>
+
+  <section class="transport">
+    <button class="play" id="play" aria-label="开始收听"><span class="icon"></span></button>
+    <p class="play-label" id="playLabel">开始收听</p>
+    <p class="status" id="status" aria-live="polite"></p>
+  </section>
+
+  <section class="controls" id="controls">
+    <div class="row">
+      <span class="label" id="modeLabel">收听方式</span>
+      <div class="seg" id="modeSeg" role="radiogroup" aria-labelledby="modeLabel">
+        <button role="radio" data-v="live">实时</button>
+        <button role="radio" data-v="bg">锁屏也能听</button>
+      </div>
+    </div>
+    <p class="help" id="modeHelp"></p>
+
+    <div class="row" id="presetRow">
+      <span class="label" id="presetLabel">延迟</span>
+      <div class="seg" id="presetSeg" role="radiogroup" aria-labelledby="presetLabel">
+        <button role="radio" data-v="low">低</button>
+        <button role="radio" data-v="mid">均衡</button>
+        <button role="radio" data-v="high">稳</button>
+      </div>
+    </div>
+    <p class="help" id="presetHelp"></p>
+
+    <div class="row">
+      <label class="label" for="vol">音量</label>
+      <div class="vol">
+        <input type="range" id="vol" min="0" max="200" step="5" value="100">
+        <span class="num" id="volNum">100%</span>
+      </div>
+    </div>
+    <p class="help" id="volHelp"></p>
+
+    <details class="details">
+      <summary>连接详情</summary>
+      <dl class="stats">
+        <dt>估计延迟</dt><dd id="stLat">—</dd>
+        <dt>缓冲</dt><dd id="stBuf">—</dd>
+        <dt>卡顿次数</dt><dd id="stUnd">—</dd>
+        <dt>网络</dt><dd id="stNet">—</dd>
+        <dt>往返时间</dt><dd id="stRtt">—</dd>
+        <dt>丢弃的数据</dt><dd id="stLost">—</dd>
+        <dt>手机采样率</dt><dd id="stRate">—</dd>
+      </dl>
+    </details>
+  </section>
+
+  <section class="note" id="keyCard" hidden>
+    <p id="keyMsg">需要访问码。请用 iPhone 相机扫描电脑上显示的二维码，或者输入电脑上显示的 6 位访问码。</p>
+    <form class="keyform" id="keyForm">
+      <input id="keyInput" inputmode="latin" autocapitalize="off" autocomplete="off" spellcheck="false" maxlength="12" placeholder="访问码" aria-label="访问码">
+      <button class="btn primary" type="submit">连接</button>
+    </form>
+  </section>
+
+  <aside class="note" id="homeTip" hidden>
+    <p>像 App 一样用：点 Safari 底部的分享按钮，选“添加到主屏幕”。以后从桌面图标打开，电脑地址和访问码都会记住。</p>
+    <div class="actions"><button class="btn" id="homeTipClose">知道了</button></div>
+  </aside>
+</main>
+
+<video id="keepAwake" src="/keepawake.mp4" playsinline webkit-playsinline preload="auto" aria-hidden="true" tabindex="-1"></video>
+
+<div class="overlay" id="overlay" hidden>
+  <button id="resumeBtn">声音被系统暂停了，点这里继续</button>
+</div>
+
+<script src="/player-core.js"></script>
+<script>
+(function () {
+  'use strict';
+  var $ = function (id) { return document.getElementById(id); };
+  var now = function () { return performance.now(); };
+  var params = new URLSearchParams(location.search);
+  var store = {
+    get: function (k, d) { try { var v = localStorage.getItem('sq.' + k); return v === null ? d : v; } catch (e) { return d; } },
+    set: function (k, v) { try { localStorage.setItem('sq.' + k, v); } catch (e) {} }
+  };
+  var PRESETS = {
+    low:  { ms: 35,  spn: 1024, help: '延迟最低。网络一般时可能偶尔卡一下，会自动加缓冲。' },
+    mid:  { ms: 70,  spn: 1024, help: '推荐。网络抖动时会自动加大缓冲，稳定后再收回。' },
+    high: { ms: 150, spn: 2048, help: '最不容易卡，延迟稍高。Wi-Fi 信号差或离路由器远时用这个。' }
+  };
+  var MODE_HELP = {
+    live: '延迟约 0.1 秒，适合看视频、打游戏。需要亮屏并停在这个页面。',
+    bg: '可以锁屏、切到别的 App，适合听歌、听课。延迟约 2–5 秒。'
+  };
+
+  var S = {
+    key: (params.get('k') || store.get('key', '')).trim().toLowerCase(),
+    mode: store.get('mode', 'live') === 'bg' ? 'bg' : 'live',
+    preset: PRESETS[store.get('preset', 'mid')] ? store.get('preset', 'mid') : 'mid',
+    gain: Math.max(0, Math.min(2, (+store.get('gain', '100') || 100) / 100)),
+    playing: false, reachable: false, keyBad: false,
+    ctx: null, node: null, core: null, ws: null, wsOpen: false,
+    rate: 48000, channels: 2, pcName: '', hasMp3: true,
+    expectSeq: -1, lost: 0, bytes: 0, bps: 0, rtt: null, lastDataAt: 0, silentSince: 0,
+    retry: 0, retryTimer: 0, wakeLock: null, bgEl: null, bgWant: false, bgState: 'idle',
+    rms: 0, needle: { p: 0, v: 0 }, lastFrame: 0, interrupted: false
+  };
+  if (params.get('k')) store.set('key', S.key);
+  if (S.key && !params.get('k') && history.replaceState) {
+    params.set('k', S.key);
+    history.replaceState(null, '', location.pathname + '?' + params.toString());
+  }
+
+  // ------------------------------------------------------------ meter
+  var CX = 160, CY = 206, R = 168, SPAN = 46;     // 指针转轴在表盘下方
+  function deflection(vu) { return Math.pow(10, (vu - 3) / 20); }   // 真 VU 表的电压刻度
+  function angleOf(d) { return -SPAN + 2 * SPAN * Math.max(0, Math.min(1.04, d)); }
+  function polar(deg, r) { var a = (deg - 90) * Math.PI / 180; return [CX + r * Math.cos(a), CY + r * Math.sin(a)]; }
+  (function drawScale() {
+    var g = $('ticks'), svgNS = 'http://www.w3.org/2000/svg', html = '';
+    var a0 = angleOf(deflection(0)), a1 = angleOf(1);
+    var p0 = polar(a0, R - 8), p1 = polar(a1, R - 8);
+    html += '<path d="M' + p0[0] + ' ' + p0[1] + ' A' + (R - 8) + ' ' + (R - 8) + ' 0 0 1 ' + p1[0] + ' ' + p1[1] +
+      '" stroke="#a8301c" stroke-width="7" fill="none"/>';
+    var q0 = polar(angleOf(deflection(-20)), R - 13), q1 = polar(a0, R - 13);
+    html += '<path d="M' + q0[0] + ' ' + q0[1] + ' A' + (R - 13) + ' ' + (R - 13) + ' 0 0 1 ' + q1[0] + ' ' + q1[1] +
+      '" stroke="#2b1d12" stroke-width="1.2" fill="none"/>';
+    [-20, -10, -7, -5, -3, -2, -1, 0, 1, 2, 3].forEach(function (vu) {
+      var a = angleOf(deflection(vu)), big = [-20, -10, -7, -5, -3, 0, 3].indexOf(vu) >= 0;
+      var t0 = polar(a, R - 13), t1 = polar(a, R - (big ? 26 : 21));
+      html += '<line x1="' + t0[0] + '" y1="' + t0[1] + '" x2="' + t1[0] + '" y2="' + t1[1] +
+        '" stroke="' + (vu > 0 ? '#a8301c' : '#2b1d12') + '" stroke-width="' + (big ? 1.8 : 1.1) + '"/>';
+      if (big) {
+        var t = polar(a, R - 40);
+        html += '<text class="scale-num' + (vu > 0 ? ' scale-red' : '') + '" x="' + t[0] + '" y="' + (t[1] + 4) +
+          '" text-anchor="middle">' + (vu > 0 ? '+' + vu : vu) + '</text>';
+      }
+    });
+    g.innerHTML = html;
+  })();
+
+  function vuFromRms(rms) {             // 0 VU 对齐到 -14 dBFS（流行音乐在 0 附近摆动）
+    if (rms <= 1e-6) return -60;
+    return 20 * Math.log10(rms) + 14;
+  }
+  function animate(t) {
+    var dt = S.lastFrame ? Math.min(0.05, (t - S.lastFrame) / 1000) : 0.016;
+    S.lastFrame = t;
+    var target = 0;
+    if (S.playing && S.mode === 'live' && S.core && S.core.state === 'playing') target = deflection(vuFromRms(S.rms));
+    // 二阶阻尼（ζ≈0.8，约 300 ms 到位），模仿机械 VU 表的指针
+    var n = S.needle, w0 = 14, zeta = 0.8;
+    for (var i = 0; i < 4; i++) {
+      var h = dt / 4, acc = w0 * w0 * (target - n.p) - 2 * zeta * w0 * n.v;
+      n.v += acc * h; n.p += n.v * h;
+    }
+    if (n.p < -0.02) { n.p = -0.02; n.v = 0; }
+    var a = angleOf(n.p);
+    $('needle').setAttribute('transform', 'rotate(' + a.toFixed(2) + ' ' + CX + ' ' + CY + ')');
+    $('faceGlow').setAttribute('opacity', S.playing ? '1' : '0');
+    requestAnimationFrame(animate);
+  }
+  requestAnimationFrame(animate);
+
+  // ------------------------------------------------------------ audio (live)
+  // 一段带无声音轨、不静音的小视频，同时解决两件事：
+  // 1) iOS 静音拨片会让网页音频静音，有媒体元素在“播放”就会把音频会话切到播放类别；
+  // 2) 局域网 http 页面用不了 Wake Lock，正在播放的视频能阻止屏幕自动锁定。
+  //    （WebKit 对带 loop 属性或静音的视频不阻止锁屏，所以手动循环、不静音）
+  var awake = $('keepAwake');
+  awake.addEventListener('timeupdate', function () { if (awake.currentTime > 50) awake.currentTime = 0; });
+  awake.addEventListener('ended', function () { if (S.playing && S.mode === 'live') { awake.currentTime = 0; awake.play().catch(function () {}); } });
+  function keepAudioSessionPlaying() {
+    try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch (e) {}
+    awake.muted = false;
+    var p = awake.play();
+    if (p && p.catch) p.catch(function () {});
+  }
+  function ensureCtx() {
+    if (!S.ctx) {
+      var AC = window.AudioContext || window.webkitAudioContext;
+      try { S.ctx = new AC({ latencyHint: 'interactive' }); } catch (e) { S.ctx = new AC(); }
+      S.ctx.onstatechange = onCtxState;
+    }
+    if (S.ctx.state !== 'running') S.ctx.resume().catch(function () {});
+  }
+  function buildNode() {
+    var size = PRESETS[S.preset].spn;
+    if (S.node && S.node.bufferSize === size) return;
+    if (S.node) { S.node.onaudioprocess = null; try { S.node.disconnect(); } catch (e) {} }
+    var node = S.ctx.createScriptProcessor(size, 1, 2);
+    node.onaudioprocess = function (e) {
+      var out = e.outputBuffer, L = out.getChannelData(0), Rr = out.getChannelData(1);
+      S.core.process(L, Rr);
+      var sum = 0;
+      for (var i = 0; i < L.length; i += 2) sum += L[i] * L[i] + Rr[i] * Rr[i];
+      S.rms = Math.sqrt(sum / L.length);
+    };
+    node.connect(S.ctx.destination);
+    S.node = node;   // 保持引用，避免被回收后停止回调
+  }
+  function startLive() {
+    ensureCtx();
+    keepAudioSessionPlaying();
+    if (!S.core) S.core = new PlayerCore(S.rate, S.ctx.sampleRate);
+    S.core.setRates(S.rate, S.ctx.sampleRate);
+    S.core.setTarget(PRESETS[S.preset].ms);
+    S.core.gain = S.gain;
+    S.core.reset();
+    buildNode();
+    connectWS();
+    requestWakeLock();
+  }
+  function stopLive() {
+    closeWS();
+    if (S.node) { S.node.onaudioprocess = null; try { S.node.disconnect(); } catch (e) {} S.node = null; }
+    awake.pause();
+    if (S.ctx && S.ctx.state === 'running') S.ctx.suspend().catch(function () {});
+    if (S.core) S.core.reset();
+    S.rms = 0;
+    releaseWakeLock();
+  }
+  function onCtxState() {
+    if (S.playing && S.mode === 'live' && S.ctx.state !== 'running' && document.visibilityState === 'visible') resumeCtx();
+  }
+  function resumeCtx() {
+    if (!S.ctx) return;
+    if (S.ctx.state === 'running') { setOverlay(false); return; }
+    S.ctx.resume().then(function () { setOverlay(S.ctx.state !== 'running'); }, function () { setOverlay(true); });
+    setTimeout(function () { if (S.playing && S.mode === 'live' && S.ctx.state !== 'running') setOverlay(true); }, 900);
+  }
+  function setOverlay(on) { S.interrupted = on; $('overlay').hidden = !on; }
+  $('resumeBtn').addEventListener('click', function () {
+    keepAudioSessionPlaying();
+    if (S.ctx) S.ctx.resume().catch(function () {});
+    if (S.core) S.core.reset();
+    setOverlay(false);
+  });
+
+  // ------------------------------------------------------------ websocket
+  function connectWS() {
+    clearTimeout(S.retryTimer);
+    var url = (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/ws?k=' + encodeURIComponent(S.key);
+    var ws;
+    try { ws = new WebSocket(url); } catch (e) { scheduleRetry(); return; }
+    ws.binaryType = 'arraybuffer';
+    S.ws = ws; S.wsOpen = false; S.expectSeq = -1;
+    ws.onopen = function () { if (S.ws !== ws) return; S.wsOpen = true; S.retry = 0; S.lastDataAt = now(); S.reachable = true; render(); };
+    ws.onmessage = function (ev) {
+      if (S.ws !== ws) return;
+      if (typeof ev.data === 'string') onText(ev.data); else onAudio(ev.data);
+    };
+    ws.onclose = function (ev) {
+      if (S.ws !== ws) return;
+      S.ws = null; S.wsOpen = false;
+      if (ev.code === 4001) { badKey(); return; }
+      if (S.playing && S.mode === 'live') scheduleRetry();
+      render();
+    };
+    ws.onerror = function () {};
+    render();
+  }
+  function scheduleRetry() {
+    clearTimeout(S.retryTimer);
+    var d = Math.min(3000, 400 * Math.pow(1.6, S.retry++));
+    if (S.retry > 3) S.reachable = false;
+    S.retryTimer = setTimeout(function () { if (S.playing && S.mode === 'live' && !S.ws) connectWS(); }, d);
+  }
+  function closeWS() {
+    clearTimeout(S.retryTimer);
+    if (S.ws) { var w = S.ws; S.ws = null; S.wsOpen = false; try { w.close(); } catch (e) {} }
+  }
+  function onText(txt) {
+    var m; try { m = JSON.parse(txt); } catch (e) { return; }
+    if (m.type === 'hello') {
+      S.rate = m.rate || 48000; S.channels = m.channels || 2; S.pcName = m.name || S.pcName;
+      if (S.core && S.ctx) S.core.setRates(S.rate, S.ctx.sampleRate);
+      render();
+    } else if (m.type === 'pong' && typeof m.t === 'number') {
+      S.rtt = now() - m.t;
+    }
+  }
+  function onAudio(buf) {
+    if (buf.byteLength < 8 || !S.core) return;
+    var dv = new DataView(buf);
+    if (dv.getUint8(0) !== 1) return;
+    var flags = dv.getUint8(1), seq = dv.getUint32(4, true);
+    if (S.expectSeq >= 0 && seq !== S.expectSeq) S.lost += (seq - S.expectSeq) >>> 0;
+    S.expectSeq = (seq + 1) >>> 0;
+    S.core.push(new Int16Array(buf, 8), S.channels);
+    var t = now();
+    S.lastDataAt = t;
+    S.bytes += buf.byteLength;
+    if (flags & 1) { if (!S.silentSince) S.silentSince = t; } else S.silentSince = 0;
+  }
+
+  // ------------------------------------------------------------ background mode (MP3)
+  function startBg() {
+    if (!S.bgEl) {
+      S.bgEl = new Audio();
+      S.bgEl.setAttribute('playsinline', '');
+      S.bgEl.preload = 'none';
+      ['playing', 'waiting', 'stalled', 'error', 'pause'].forEach(function (ev) { S.bgEl.addEventListener(ev, onBgEvent); });
+    }
+    S.bgWant = true; S.bgState = 'loading';
+    S.bgEl.src = '/stream.mp3?k=' + encodeURIComponent(S.key) + '&t=' + Date.now();
+    var p = S.bgEl.play();
+    if (p && p.catch) p.catch(function (e) {
+      if (S.bgWant && e && e.name === 'NotAllowedError') { S.bgState = 'blocked'; render(); }
+    });
+    setupMediaSession();
+  }
+  function stopBg() {
+    S.bgWant = false; S.bgState = 'idle';
+    if (S.bgEl) { S.bgEl.pause(); S.bgEl.removeAttribute('src'); try { S.bgEl.load(); } catch (e) {} }
+  }
+  function onBgEvent(e) {
+    if (!S.bgWant) return;
+    if (e.type === 'playing') S.bgState = 'playing';
+    else if (e.type === 'waiting' || e.type === 'stalled') S.bgState = 'loading';
+    else if (e.type === 'error') {
+      S.bgState = 'retry';
+      setTimeout(function () { if (S.bgWant && S.playing && S.mode === 'bg') startBg(); }, 2000);
+    } else if (e.type === 'pause' && S.playing) {     // 锁屏界面/耳机按了暂停
+      S.playing = false; stopBg();
+    }
+    render();
+  }
+  function setupMediaSession() {
+    if (!('mediaSession' in navigator)) return;
+    try {
+      navigator.mediaSession.metadata = new MediaMetadata({
+        title: '电脑的声音', artist: S.pcName || '声桥', album: '声桥',
+        artwork: [{ src: '/icon-512.png', sizes: '512x512', type: 'image/png' }]
+      });
+      navigator.mediaSession.setActionHandler('play', function () { if (!S.playing) start(); });
+      navigator.mediaSession.setActionHandler('pause', function () { if (S.playing) stop(); });
+    } catch (e) {}
+  }
+
+  // ------------------------------------------------------------ wake lock
+  function requestWakeLock() {
+    if (!('wakeLock' in navigator) || S.wakeLock || S.mode !== 'live' || !S.playing) return;
+    navigator.wakeLock.request('screen').then(function (l) {
+      S.wakeLock = l;
+      l.addEventListener('release', function () { S.wakeLock = null; });
+    }).catch(function () {});
+  }
+  function releaseWakeLock() {
+    if (S.wakeLock) { try { S.wakeLock.release(); } catch (e) {} S.wakeLock = null; }
+  }
+
+  // ------------------------------------------------------------ start / stop
+  function start() {
+    if (S.keyBad) return;
+    S.playing = true;
+    if (S.mode === 'bg') startBg(); else startLive();
+    setupMediaSession();
+    render();
+  }
+  function stop() {
+    S.playing = false;
+    stopLive();
+    stopBg();
+    setOverlay(false);
+    render();
+  }
+  $('play').addEventListener('click', function () { if (S.playing) stop(); else start(); });
+
+  document.addEventListener('visibilitychange', function () {
+    if (document.visibilityState !== 'visible' || !S.playing || S.mode !== 'live') return;
+    requestWakeLock();
+    if (S.core) S.core.reset();          // 丢掉后台期间积压的旧声音，从最新的开始
+    if (!S.ws) connectWS();
+    resumeCtx();
+  });
+
+  // ------------------------------------------------------------ settings
+  function setSeg(id, value) {
+    var bs = $(id).querySelectorAll('button');
+    for (var i = 0; i < bs.length; i++) bs[i].setAttribute('aria-checked', bs[i].getAttribute('data-v') === value ? 'true' : 'false');
+  }
+  $('modeSeg').addEventListener('click', function (e) {
+    var v = e.target.getAttribute && e.target.getAttribute('data-v');
+    if (!v || v === S.mode) return;
+    if (v === 'bg' && !S.hasMp3) return;
+    var was = S.playing;
+    if (was) { S.playing = false; stopLive(); stopBg(); }
+    S.mode = v; store.set('mode', v);
+    if (was) start(); else render();
+  });
+  $('presetSeg').addEventListener('click', function (e) {
+    var v = e.target.getAttribute && e.target.getAttribute('data-v');
+    if (!v || v === S.preset) return;
+    S.preset = v; store.set('preset', v);
+    if (S.core) S.core.setTarget(PRESETS[v].ms);
+    if (S.playing && S.mode === 'live' && S.ctx) buildNode();
+    render();
+  });
+  function setVol(pct) {
+    S.gain = pct / 100;
+    $('volNum').textContent = pct + '%';
+    $('vol').style.setProperty('--fill', (pct / 2) + '%');
+    if (S.core) S.core.gain = S.gain;
+  }
+  $('vol').value = Math.round(S.gain * 100);
+  setVol(Math.round(S.gain * 100));
+  $('vol').addEventListener('input', function () { var p = +$('vol').value; setVol(p); store.set('gain', String(p)); });
+
+  // ------------------------------------------------------------ key & reachability
+  function badKey() {
+    S.keyBad = true;
+    if (S.playing) stop();
+    $('keyCard').hidden = false;
+    $('keyMsg').textContent = S.key ? '访问码不对。请重新扫描电脑上的二维码，或输入电脑上显示的访问码。'
+                                     : '需要访问码。请用 iPhone 相机扫描电脑上显示的二维码，或者输入电脑上显示的 6 位访问码。';
+    render();
+  }
+  $('keyForm').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var k = $('keyInput').value.trim().toLowerCase();
+    if (!k) return;
+    S.key = k; store.set('key', k);
+    params.set('k', k);
+    if (history.replaceState) history.replaceState(null, '', location.pathname + '?' + params.toString());
+    checkServer();
+  });
+  function checkServer() {
+    fetch('/api/check?k=' + encodeURIComponent(S.key), { cache: 'no-store' }).then(function (r) {
+      if (r.status === 403) { badKey(); return null; }
+      return r.ok ? r.json() : null;
+    }).then(function (info) {
+      if (!info) return;
+      S.keyBad = false; S.reachable = true;
+      S.pcName = info.name || ''; S.hasMp3 = info.mp3 !== false;
+      $('keyCard').hidden = true;
+      render();
+    }).catch(function () { S.reachable = false; render(); });
+  }
+
+  // ------------------------------------------------------------ rendering
+  function fmtMs(ms) { return ms == null || isNaN(ms) ? '—' : Math.round(ms) + ' 毫秒'; }
+  function estLatency() {
+    if (!S.core || !S.ctx) return null;
+    var st = S.core.stats(), base = (S.ctx.baseLatency || 0) + (S.ctx.outputLatency || 0);
+    var spn = S.node ? S.node.bufferSize / S.ctx.sampleRate : 0;
+    return st.emaMs + spn * 1000 + base * 1000 + (S.rtt != null ? S.rtt / 2 : 5) + 10;
+  }
+  function render() {
+    var live = S.mode === 'live';
+    setSeg('modeSeg', S.mode);
+    setSeg('presetSeg', S.preset);
+    $('modeHelp').textContent = S.hasMp3 ? MODE_HELP[S.mode] : MODE_HELP.live + '（电脑端缺少 MP3 编码组件，锁屏模式不可用）';
+    $('presetRow').hidden = !live; $('presetHelp').hidden = !live;
+    $('presetHelp').textContent = PRESETS[S.preset].help;
+    $('vol').disabled = !live;
+    $('volHelp').textContent = live ? '手机侧边的音量键同样有效。超过 100% 是额外放大。' : '锁屏模式下请用手机侧边的音量键调节。';
+    $('dialName').textContent = S.pcName ? S.pcName.slice(0, 28) : '';
+
+    var play = $('play');
+    play.classList.toggle('on', S.playing);
+    play.setAttribute('aria-label', S.playing ? '停止收听' : '开始收听');
+    $('playLabel').textContent = S.playing ? '停止收听' : '开始收听';
+
+    var lamp = $('lamp'), conn = $('connText');
+    var connected = live ? S.wsOpen : S.bgState === 'playing';
+    lamp.className = 'lamp' + ((S.playing && connected) || (!S.playing && S.reachable) ? ' on' : '') + (S.keyBad || (!S.reachable && S.playing) ? ' warn' : '');
+    if (S.keyBad) conn.textContent = '访问码不对';
+    else if (S.playing && live && !S.wsOpen) conn.textContent = S.retry > 1 ? '正在重连…' : '正在连接…';
+    else if (S.reachable) conn.textContent = '已连上 ' + (S.pcName || '电脑');
+    else conn.textContent = '连不上电脑';
+
+    var st = $('status'), msg = '', alert = false;
+    if (location.hostname === '127.0.0.1' || location.hostname === 'localhost') {
+      msg = '这是电脑上的页面。请用 iPhone 扫码打开，在电脑上收听会形成回声。'; alert = true;
+    } else if (S.keyBad) {
+      msg = '请先输入正确的访问码。'; alert = true;
+    } else if (!S.playing) {
+      msg = S.reachable ? '点按钮开始，电脑的声音会从手机里出来。'
+                        : '连不上电脑：确认电脑上的声桥窗口还开着，手机和电脑连的是同一个 Wi-Fi。';
+      alert = !S.reachable;
+    } else if (live) {
+      if (!S.wsOpen) { msg = S.retry > 3 ? '连不上电脑，正在重试。确认电脑上的声桥还开着。' : '正在连接电脑…'; alert = S.retry > 3; }
+      else if (S.core && S.core.state === 'buffering') msg = '正在缓冲…';
+      else if (S.silentSince && now() - S.silentSince > 1500) msg = '已连上，但电脑现在没有声音（没在播放，或者电脑被静音了）。';
+      else { var lat = estLatency(); msg = '正在播放，延迟约 ' + (lat ? Math.round(lat / 10) * 10 : '—') + ' 毫秒。'; }
+    } else {
+      if (S.bgState === 'playing') msg = '正在播放，可以锁屏或切到别的 App 了。';
+      else if (S.bgState === 'blocked') { msg = '浏览器拦住了播放，请再点一次按钮。'; alert = true; }
+      else if (S.bgState === 'retry') { msg = '连接断了，正在重连…'; alert = true; }
+      else msg = '正在缓冲，锁屏模式要等几秒…';
+    }
+    st.textContent = msg;
+    st.classList.toggle('alert', alert);
+  }
+
+  function renderStats() {
+    var c = S.core, live = S.mode === 'live' && S.playing;
+    $('stLat').textContent = live ? fmtMs(estLatency()) : '—';
+    if (live && c) {
+      var s = c.stats();
+      $('stBuf').textContent = Math.round(s.emaMs) + ' / ' + Math.round(s.targetMs) + ' 毫秒';
+      $('stUnd').textContent = String(s.underruns);
+    } else { $('stBuf').textContent = '—'; $('stUnd').textContent = '—'; }
+    $('stNet').textContent = live ? (S.bps / 1e6).toFixed(2) + ' Mbps' : '—';
+    $('stRtt').textContent = live && S.rtt != null ? fmtMs(S.rtt) : '—';
+    $('stLost').textContent = live ? S.lost + ' 块' : '—';
+    $('stRate').textContent = S.ctx ? S.ctx.sampleRate + ' Hz' : '—';
+  }
+
+  var lastBytes = 0, lastTick = now();
+  setInterval(function () {
+    var t = now();
+    S.bps = (S.bytes - lastBytes) * 8 / ((t - lastTick) / 1000);
+    lastBytes = S.bytes; lastTick = t;
+    if (S.playing && S.mode === 'live' && S.wsOpen && S.ws) {
+      try {
+        S.ws.send(JSON.stringify({ type: 'ping', t: now() }));
+        var s = S.core.stats();
+        S.ws.send(JSON.stringify({ type: 'stats', lat: Math.round(estLatency() || 0), buf: Math.round(s.emaMs),
+          tgt: Math.round(s.targetMs), und: s.underruns, rtt: S.rtt == null ? null : Math.round(S.rtt) }));
+      } catch (e) {}
+      if (t - S.lastDataAt > 4000 && document.visibilityState === 'visible') {   // 数据断了：主动重连
+        try { S.ws.close(); } catch (e) {}
+      }
+    }
+    renderStats();
+  }, 1000);
+  setInterval(render, 300);
+
+  // ------------------------------------------------------------ init
+  if (/iPhone|iPad|iPod/.test(navigator.userAgent) && !navigator.standalone && store.get('homeTip', '') !== 'done') {
+    $('homeTip').hidden = false;
+  }
+  $('homeTipClose').addEventListener('click', function () { $('homeTip').hidden = true; store.set('homeTip', 'done'); });
+  window.__sq = S;   // 调试用
+  render();
+  checkServer();
+  setInterval(function () { if (!S.playing) checkServer(); }, 5000);
+})();
+</script>
+</body>
+</html>
