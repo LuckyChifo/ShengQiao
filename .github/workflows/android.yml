@@ -15,7 +15,7 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
-      - uses: android-actions/setup-android@v3
+      - uses: android-actions/setup-android@v4
       - uses: gradle/actions/setup-gradle@v4
       - name: Download HONOR Translucent Component Kit
         run: |
@@ -61,7 +61,7 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
-      - uses: android-actions/setup-android@v3
+      - uses: android-actions/setup-android@v4
       - uses: gradle/actions/setup-gradle@v4
       - name: Download HONOR Translucent Component Kit
         run: |
@@ -70,6 +70,11 @@ jobs:
           echo "60fda147e308baa57168845d2e6d2ca03c77defc16ab7e73466bec2d42f4d8fc  android/app/libs/hnvisualeffect-11.0.0.134.aar" | sha256sum -c -
       - name: Install native build components
         run: sdkmanager "platforms;android-35" "build-tools;35.0.0" "ndk;27.0.12077973" "cmake;3.22.1"
+      - name: Enable KVM for the Android emulator
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
       - name: Run instrumented audio tests on Android emulator
         uses: reactivecircus/android-emulator-runner@v2
         with:
