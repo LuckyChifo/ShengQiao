@@ -32,7 +32,7 @@ APK 输出到 `app/build/outputs/apk/debug/app-debug.apk`。
 
 ## 发布与升级
 
-当前版本为 `1.1.0`（versionCode 2），applicationId 保持 `com.shengqiao.android`，可以从 1.0.0 覆盖升级并保留设置。正式 Release 签名不写入仓库，通过四个环境变量提供：`SHENGQIAO_KEYSTORE`、`SHENGQIAO_KEYSTORE_PASSWORD`、`SHENGQIAO_KEY_ALIAS`、`SHENGQIAO_KEY_PASSWORD`。必须全部设置；缺少任一变量会在构建前报错。
+当前对外版本为 `1.0.0`（versionCode 2），applicationId 保持 `com.shengqiao.android`，可以从旧的 1.0.0（versionCode 1）覆盖升级并保留设置。正式 Release 签名不写入仓库，通过四个环境变量提供：`SHENGQIAO_KEYSTORE`、`SHENGQIAO_KEYSTORE_PASSWORD`、`SHENGQIAO_KEY_ALIAS`、`SHENGQIAO_KEY_PASSWORD`。必须全部设置；缺少任一变量会在构建前报错。
 
 ```powershell
 $env:SHENGQIAO_KEYSTORE = 'D:\keys\shengqiao.jks'
