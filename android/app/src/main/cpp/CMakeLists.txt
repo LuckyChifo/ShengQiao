@@ -11,4 +11,9 @@ target_compile_options(opus PRIVATE $<$<CONFIG:Debug>:-O2>)
 
 add_library(shengqiao_opus SHARED opus_jni.c)
 target_link_libraries(shengqiao_opus PRIVATE opus)
+# NDK r27 needs explicit ELF alignment for Android devices with 16 KiB pages.
+target_link_options(shengqiao_opus PRIVATE
+    "-Wl,-z,max-page-size=16384"
+    "-Wl,-z,common-page-size=16384"
+)
 target_compile_options(shengqiao_opus PRIVATE -Wall -Wextra -Werror)

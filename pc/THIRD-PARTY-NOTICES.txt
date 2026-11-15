@@ -1,0 +1,12 @@
+声桥 Windows 客户端第三方组件授权说明
+
+lameenc 用于兼容 MP3 音频流，采用 GNU LGPL 3.0 或更高版本。
+许可证位于 lameenc-<版本>.dist-info/licenses/LICENSE。
+项目源码和发布记录见 https://github.com/chrisstaite/lameenc
+
+pystray 用于系统托盘图标和菜单，采用 GNU LGPL 3.0。
+许可证位于 pystray-<版本>.dist-info/COPYING.LGPL。
+项目源码和发布记录见 https://github.com/moses-palmer/pystray
+
+上述目录名及目录内的 METADATA 记录了随包分发的版本。
+GNU GPL 3.0 正文位于 pystray-<版本>.dist-info/COPYING。
