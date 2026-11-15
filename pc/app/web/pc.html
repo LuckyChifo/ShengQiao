@@ -1,0 +1,236 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<link rel="icon" href="/pc-icon.png">
+<link rel="stylesheet" href="/pc.css">
+<title>声桥</title>
+<script src="/pc.js" defer></script>
+</head>
+<body>
+<svg class="icon-symbols" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+  <symbol id="i-home" viewBox="0 0 24 24"><path d="m3 10 9-7 9 7M5 9v11h5v-6h4v6h5V9"/></symbol>
+  <symbol id="i-devices" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="M12 17v4m-4 0h8"/></symbol>
+  <symbol id="i-settings" viewBox="0 0 24 24"><path d="M4 6h7m4 0h5M4 12h3m4 0h9M4 18h11m4 0h1"/><circle cx="13" cy="6" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="17" cy="18" r="2"/></symbol>
+  <symbol id="i-speaker" viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9H4Zm12 0a4 4 0 0 1 0 6m2-8a7 7 0 0 1 0 10"/></symbol>
+  <symbol id="i-mic" viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="12" rx="3"/><path d="M6 11v1a6 6 0 0 0 12 0v-1m-6 7v3m-3 0h6"/></symbol>
+  <symbol id="i-qr" viewBox="0 0 24 24"><rect x="3" y="3" width="6" height="6" rx="1"/><rect x="15" y="3" width="6" height="6" rx="1"/><rect x="3" y="15" width="6" height="6" rx="1"/><path d="M15 15h3v3h3v3m0-6v1m-6 3v2h1"/></symbol>
+  <symbol id="i-phone" viewBox="0 0 24 24"><rect x="6" y="3" width="12" height="18" rx="2.5"/><path d="M11 17h2"/></symbol>
+  <symbol id="i-copy" viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></symbol>
+  <symbol id="i-chevron" viewBox="0 0 24 24"><path d="m10 6 6 6-6 6"/></symbol>
+  <symbol id="i-usb" viewBox="0 0 24 24"><path d="M12 17V3m-3 3 3-3 3 3M7 14v1a3 3 0 0 0 3 3h2m5-6v1a3 3 0 0 1-3 3h-2"/><circle cx="12" cy="20" r="1.5"/><circle cx="7" cy="12.5" r="1.5"/><rect x="15.5" y="9" width="3" height="3" rx=".5"/></symbol>
+  <symbol id="i-play" viewBox="0 0 24 24"><path d="m8 5 11 7-11 7V5Z"/></symbol>
+</svg>
+
+<div class="app">
+  <aside class="sidebar">
+    <div class="brand">
+      <img src="/pc-icon.png" alt="" width="42" height="42">
+      <div><strong>声桥</strong><span>桌面客户端</span></div>
+    </div>
+    <nav aria-label="导航">
+      <button type="button" data-page="home" aria-controls="home" aria-current="page"><svg class="icon" aria-hidden="true"><use href="#i-home"/></svg><span>首页</span></button>
+      <button type="button" data-page="devices" aria-controls="devices"><svg class="icon" aria-hidden="true"><use href="#i-devices"/></svg><span>设备</span><span id="navCount" class="nav-count" hidden></span></button>
+      <button type="button" data-page="settings" aria-controls="settings"><svg class="icon" aria-hidden="true"><use href="#i-settings"/></svg><span>设置</span></button>
+    </nav>
+    <div class="computer">
+      <div class="computer-icon"><svg class="icon" aria-hidden="true"><use href="#i-devices"/></svg></div>
+      <div class="computer-name"><strong id="hostname">此电脑</strong><span id="version">本机</span></div>
+    </div>
+  </aside>
+
+  <div class="workspace">
+    <header class="topbar">
+      <h1 id="pageTitle">首页</h1>
+      <div id="service" class="status" data-state="waiting" role="status"><i></i><span id="serviceText">正在连接服务</span></div>
+    </header>
+    <main class="content" id="content">
+      <section id="home" aria-labelledby="pageTitle">
+        <div class="overview">
+          <section class="panel audio-panel" aria-labelledby="audioTitle">
+            <div class="panel-heading">
+              <h2 id="audioTitle">音频电平</h2>
+              <button class="button small" id="chime" type="button" disabled><svg class="icon" aria-hidden="true"><use href="#i-play"/></svg><span id="chimeLabel">播放测试音</span></button>
+            </div>
+            <div class="channels">
+              <section class="channel" aria-labelledby="speakerTitle">
+                <div class="channel-heading">
+                  <span class="tile"><svg class="icon" aria-hidden="true"><use href="#i-speaker"/></svg></span>
+                  <div class="channel-name"><h3 id="speakerTitle">扬声器</h3><p>电脑声音 → 手机</p></div>
+                  <span class="channel-state" id="srcTag">等待采集</span>
+                </div>
+                <div class="meter" aria-hidden="true"><i id="bar"></i></div>
+                <div class="scale" aria-hidden="true"><span>−60</span><span>−40</span><span>−20</span><span>0 dB</span></div>
+                <p class="channel-info" id="source">正在读取采集设备…</p>
+              </section>
+              <section class="channel" aria-labelledby="micTitle">
+                <div class="channel-heading">
+                  <span class="tile"><svg class="icon" aria-hidden="true"><use href="#i-mic"/></svg></span>
+                  <div class="channel-name"><h3 id="micTitle">麦克风</h3><p>手机麦克风 → 电脑</p></div>
+                  <span class="channel-state" id="micTag">等待接入</span>
+                </div>
+                <div class="meter" aria-hidden="true"><i id="micBar"></i></div>
+                <div class="scale" aria-hidden="true"><span>−60</span><span>−40</span><span>−20</span><span>0 dB</span></div>
+                <p class="channel-info" id="micState">在手机声桥 App 中开启麦克风。</p>
+              </section>
+            </div>
+            <p class="warning-box" id="conflict" hidden>采集设备和麦克风输出设备相同。请在设置中把采集设备换成扬声器或耳机，以免手机听到自己的声音。</p>
+            <p class="feedback" id="chimeFeedback" role="status" hidden></p>
+          </section>
+
+          <section class="panel pairing-panel" aria-labelledby="pairTitle">
+            <div class="panel-heading">
+              <h2 id="pairTitle" tabindex="-1">连接手机</h2>
+              <span class="channel-state" id="pairType">Wi-Fi</span>
+            </div>
+            <p class="pair-hint" id="pairHint">手机与电脑连同一网络，在 App 的「设备」中选择此电脑，也可用相机扫码收听。</p>
+            <div class="qr-stage">
+              <div class="qr-plate" id="qrPlate">
+                <svg id="qrPlaceholder" class="icon" aria-hidden="true"><use href="#i-qr"/></svg>
+                <img id="qr" alt="手机收听二维码" hidden>
+              </div>
+            </div>
+            <div class="pair-values">
+              <div><span>连接地址</span><code class="selectable" id="url">—</code></div>
+              <div id="keyline" hidden><span>访问码</span><code class="selectable access-key" id="key"></code></div>
+            </div>
+            <div class="pair-actions">
+              <button class="button primary" id="copy" type="button" disabled><svg class="icon" aria-hidden="true"><use href="#i-copy"/></svg><span id="copyLabel">复制链接</span></button>
+              <details class="addresses" id="altsBox" hidden>
+                <summary class="button">切换地址</summary>
+                <div id="alts" class="address-list"></div>
+              </details>
+            </div>
+            <p class="feedback" id="copyFeedback" role="status" hidden></p>
+            <div class="connection-actions">
+              <button class="button" id="refreshConnection" type="button" disabled>刷新连接信息</button>
+              <button class="button" id="editKey" type="button" aria-expanded="false" aria-controls="keyForm" disabled>设置访问码</button>
+            </div>
+            <form id="keyForm" class="setting key-form" hidden>
+              <label for="customKey">手动设置访问码</label>
+              <input id="customKey" type="text" minlength="4" maxlength="16" pattern="[A-Za-z0-9]{4,16}" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="4–16 位英文字母或数字" aria-describedby="keyHelp">
+              <p id="keyHelp">不区分大小写。修改后，网络连接的手机需使用新码重新连接。</p>
+              <div class="connection-actions">
+                <button class="button primary" id="saveKey" type="submit" disabled>保存访问码</button>
+                <button class="button" id="generateKey" type="button" disabled>随机生成新码</button>
+              </div>
+            </form>
+            <p class="feedback" id="pairFeedback" role="status" hidden></p>
+          </section>
+        </div>
+
+        <section class="panel connection-summary" aria-labelledby="connectionTitle">
+          <span class="tile"><svg class="icon" aria-hidden="true"><use href="#i-phone"/></svg></span>
+          <div class="summary-text"><h2 id="connectionTitle">当前连接</h2><p id="connectionText">等待手机连接</p></div>
+          <button class="button" type="button" data-open="devices">查看设备<svg class="icon" aria-hidden="true"><use href="#i-chevron"/></svg></button>
+        </section>
+      </section>
+
+      <section id="devices" aria-labelledby="pageTitle" hidden>
+        <div class="device-layout">
+          <section class="panel" aria-labelledby="lsTitle">
+            <div class="panel-heading"><h2 id="lsTitle">已连接设备</h2><span class="channel-state" id="deviceCount">0 台</span></div>
+            <div id="listeners"></div>
+            <div class="empty-state" id="emptyDevices">
+              <span class="tile"><svg class="icon" aria-hidden="true"><use href="#i-phone"/></svg></span>
+              <h3>暂无连接</h3>
+              <p>手机连接后，可在这里查看连接方式、音质与延迟。</p>
+              <button class="button primary" type="button" data-open="home">连接手机</button>
+            </div>
+          </section>
+          <section class="panel usb-panel" aria-labelledby="usbTitle">
+            <div class="panel-heading">
+              <h2 id="usbTitle"><svg class="icon" aria-hidden="true"><use href="#i-usb"/></svg>USB 连接</h2>
+              <span class="channel-state" id="usbTag">等待检测</span>
+            </div>
+            <p id="usbMsg">插入数据线后，按手机类型完成连接。</p>
+            <p class="hint" id="usbHint">开启 USB 网络共享后，可点击下方按钮重新检测。</p>
+            <div class="usb-guide">
+              <h3>安卓 · USB 网络共享</h3>
+              <p>用数据线连接电脑，在手机「设置 → 个人热点／网络共享」中打开「USB 网络共享」，再打开声桥。</p>
+              <p class="hint">无需 USB 调试或 iTunes。检测到共享网卡后，点「查看 USB 共享地址」，在 App 中填写对应 IP、端口和访问码；也可选择自动发现的电脑。</p>
+              <h3>iPhone · USB 直连</h3>
+              <p>电脑安装 iTunes 或「Apple 设备」，手机解锁并信任此电脑，然后打开声桥 App。</p>
+            </div>
+            <button class="button" id="usbNetQr" type="button" hidden>查看 USB 共享地址</button>
+            <button class="button" id="refreshUsb" type="button" disabled>刷新检测</button>
+            <p class="feedback" id="usbFeedback" role="status" hidden></p>
+          </section>
+        </div>
+      </section>
+
+      <section id="settings" aria-labelledby="pageTitle" hidden>
+        <div class="settings-layout">
+          <section class="panel" aria-labelledby="audioSettings">
+            <div class="panel-heading"><h2 id="audioSettings">音频设置</h2></div>
+            <div class="setting">
+              <label for="device">电脑声音采集设备</label>
+              <select id="device" disabled><option>正在读取设备…</option></select>
+              <p id="captureDetail"></p>
+            </div>
+            <div class="setting">
+              <label for="micDevice">麦克风输出设备</label>
+              <select id="micDevice" disabled><option>正在读取设备…</option></select>
+              <p>使用 VB-CABLE 时，在会议或录音软件里选择 <span class="selectable">CABLE Output (VB-Audio Virtual Cable)</span> 作为麦克风。</p>
+            </div>
+            <div class="setting">
+              <h3 id="denoiseTitle">麦克风降噪</h3>
+              <div class="segmented" id="denoise" role="group" aria-labelledby="denoiseTitle">
+                <button type="button" data-v="off" aria-pressed="false" disabled>关闭</button>
+                <button type="button" data-v="light" aria-pressed="false" disabled>轻度</button>
+                <button type="button" data-v="rnnoise" aria-pressed="false" disabled>RNNoise</button>
+                <button type="button" data-v="strong" aria-pressed="false" disabled>强力</button>
+              </div>
+              <p id="denoiseNote"></p>
+            </div>
+            <p class="feedback" id="settingsFeedback" role="status" hidden></p>
+          </section>
+          <div class="settings-side">
+            <section class="panel" aria-labelledby="appearanceTitle">
+              <div class="panel-heading"><h2 id="appearanceTitle">外观</h2></div>
+              <div class="setting">
+                <label for="theme">浅色与深色</label>
+                <select id="theme">
+                  <option value="system">跟随系统</option>
+                  <option value="light">浅色</option>
+                  <option value="dark">深色</option>
+                </select>
+              </div>
+            </section>
+            <section class="panel help-panel" aria-labelledby="helpTitle">
+              <div class="panel-heading"><h2 id="helpTitle">帮助与日志</h2></div>
+              <details class="fold">
+                <summary>怎么用 USB 连接？</summary>
+                <ol class="tips">
+                  <li><b>安卓</b>：插入数据线，在手机设置里开启「USB 网络共享」，无需 USB 调试。在设备页点「刷新检测」，再查看 USB 共享地址，在手机 App 中填写 IP、端口和访问码。部分手机的设置入口叫「个人热点」或「连接与共享」。</li>
+                  <li><b>直连（推荐）</b>：数据线接好 iPhone，打开声桥 App，电脑上会自动连上，不用 Wi-Fi、不用开个人热点。电脑需要装 iTunes 或微软商店的“Apple 设备”App（里面带 Apple Mobile Device Service），手机上第一次要点“信任此电脑”。</li>
+                  <li><b>USB 共享网络</b>：不想装 iTunes 的话，在 iPhone 上打开“个人热点”再插线，电脑会多出一张“Apple Mobile Device Ethernet”网卡。控制页会自动认出它，用 USB 卡片里的地址扫码或在 App 里手动输入即可。</li>
+                  <li><b>连不上</b>：确认手机已解锁、App 开在前台；换一根能传数据的线；在电脑上看“Apple Mobile Device Service”服务是否在运行。</li>
+                </ol>
+              </details>
+              <details class="fold">
+                <summary>手机连不上？</summary>
+                <ol class="tips">
+                  <li><b>防火墙</b>：首次运行时 Windows 会问要不要允许访问，两个网络类型都勾上点“允许”。错过了就运行文件夹里的 firewall.bat。</li>
+                  <li><b>App 里看不到电脑</b>：首次打开 App 时要允许“查找本地网络上的设备”；也可以直接扫码连接。</li>
+                  <li><b>同一个网络</b>：手机要连电脑所在的 Wi-Fi，不能用流量。校园网、酒店 Wi-Fi 常常禁止设备互访，这时让电脑连手机的个人热点就行。</li>
+                  <li><b>代理/VPN</b>：Clash 等软件的 TUN 模式偶尔会挡住局域网访问，可暂时关掉试试。</li>
+                  <li><b>电脑不想出声</b>：有些声卡静音或调小电脑音量后，手机也会跟着没声或变小（手机端音量可拉到 200% 补回）。注意：VB-CABLE 用来当麦克风时，<b>不要</b>把它设成 Windows 默认输出，否则电脑的声音会混进麦克风。</li>
+                  <li><b>用蓝牙耳机</b>：AirPods 等蓝牙耳机本身有 0.15–0.25 秒延迟，看视频对不上口型属正常。</li>
+                </ol>
+              </details>
+              <details class="fold">
+                <summary>运行日志</summary>
+                <pre class="log selectable" id="log"></pre>
+              </details>
+            </section>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+</div>
+</body>
+</html>

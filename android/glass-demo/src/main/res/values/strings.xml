@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="demo_background_section">滚动背景 %1$d</string>
+    <string name="demo_status">能力值=%1$d；SDK 容器=%2$s；模式=%3$s</string>
+    <string name="demo_sdk_created">已创建</string>
+    <string name="demo_sdk_fallback">普通降级</string>
+</resources>

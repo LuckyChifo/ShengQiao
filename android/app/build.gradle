@@ -1,0 +1,89 @@
+plugins {
+    id 'com.android.application'
+}
+
+def releaseSigning = [
+        storeFile: System.getenv('SHENGQIAO_KEYSTORE'),
+        storePassword: System.getenv('SHENGQIAO_KEYSTORE_PASSWORD'),
+        keyAlias: System.getenv('SHENGQIAO_KEY_ALIAS'),
+        keyPassword: System.getenv('SHENGQIAO_KEY_PASSWORD')
+]
+if (releaseSigning.values().any { it } && !releaseSigning.values().every { it }) {
+    throw new GradleException('Android 发布签名需要完整设置 SHENGQIAO_KEYSTORE、SHENGQIAO_KEYSTORE_PASSWORD、SHENGQIAO_KEY_ALIAS、SHENGQIAO_KEY_PASSWORD')
+}
+if (releaseSigning.values().every { it } && !file(releaseSigning.storeFile).exists()) {
+    throw new GradleException('找不到 SHENGQIAO_KEYSTORE 指定的签名文件')
+}
+
+android {
+    namespace 'com.shengqiao.app'
+    compileSdk 35
+    ndkVersion '27.0.12077973'
+
+    defaultConfig {
+        applicationId 'com.shengqiao.android'
+        minSdk 26
+        targetSdk 35
+        versionCode 2
+        versionName '1.0.0'
+        testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
+    }
+
+    externalNativeBuild {
+        cmake {
+            path file('src/main/cpp/CMakeLists.txt')
+            version '3.22.1'
+        }
+    }
+
+    signingConfigs {
+        release {
+            if (releaseSigning.values().every { it }) {
+                storeFile file(releaseSigning.storeFile)
+                storePassword releaseSigning.storePassword
+                keyAlias releaseSigning.keyAlias
+                keyPassword releaseSigning.keyPassword
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            if (releaseSigning.values().every { it }) {
+                signingConfig signingConfigs.release
+            }
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    buildFeatures {
+        viewBinding true
+    }
+
+    testOptions {
+        unitTests.returnDefaultValues = true
+    }
+}
+
+dependencies {
+    implementation project(':glass')
+    implementation files('libs/hnvisualeffect-11.0.0.134.aar')
+    implementation 'androidx.appcompat:appcompat:1.7.0'
+    implementation 'androidx.fragment:fragment:1.8.5'
+    implementation 'androidx.lifecycle:lifecycle-livedata:2.8.7'
+    implementation 'androidx.lifecycle:lifecycle-viewmodel:2.8.7'
+    implementation 'androidx.recyclerview:recyclerview:1.4.0'
+    implementation 'com.google.android.material:material:1.12.0'
+
+    testImplementation 'junit:junit:4.13.2'
+    testImplementation 'org.json:json:20240303'
+
+    androidTestImplementation 'androidx.test:runner:1.6.2'
+    androidTestImplementation 'androidx.test.ext:junit:1.2.1'
+}

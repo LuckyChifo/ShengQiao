@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="声桥">
+<meta name="theme-color" content="#F2F6F4" id="themeColor">
+<meta name="format-detection" content="telephone=no">
+<link rel="apple-touch-icon" href="/icon-180.png">
+<link rel="icon" href="/icon-180.png">
+<link rel="stylesheet" href="/player.css">
+<title>声桥</title>
+</head>
+<body>
+<div class="backdrop" id="backdrop" aria-hidden="true"></div>
+<main class="app">
+  <header class="topbar">
+    <div>
+      <p class="eyebrow">SHENGQIAO</p>
+      <h1 id="pageTitle">声桥</h1>
+    </div>
+    <div class="connection-pill" id="connectionPill">
+      <span class="status-dot" id="statusDot"></span>
+      <span id="connText">正在找电脑…</span>
+    </div>
+  </header>
+
+  <section class="card key-card" id="keyCard" hidden>
+    <h2>连接电脑</h2>
+    <p id="keyMsg">请输入电脑声桥页面显示的访问码。</p>
+    <form class="key-form" id="keyForm">
+      <input id="keyInput" inputmode="latin" autocapitalize="off" autocomplete="off" spellcheck="false"
+             minlength="4" maxlength="16" pattern="[A-Za-z0-9]{4,16}" placeholder="4–16 位字母或数字" aria-label="访问码" required>
+      <button class="button primary" type="submit">连接</button>
+    </form>
+  </section>
+
+  <div id="homeView">
+    <section class="card computer-card">
+      <p class="section-label">当前电脑</p>
+      <h2 id="pcName">尚未连接</h2>
+      <p class="secondary" id="addressText">打开电脑上的声桥，用手机扫码即可连接。</p>
+    </section>
+
+    <section class="card playback-card">
+      <div class="setting-row">
+        <div>
+          <h2>扬声器</h2>
+          <p class="secondary" id="playStatus">连接后即可收听电脑声音</p>
+        </div>
+        <button class="switch" id="play" role="switch" aria-checked="false" aria-label="扬声器"><span></span></button>
+      </div>
+      <div class="level-block">
+        <div class="level-heading"><span>音频电平</span><span id="levelText">暂无电平数据</span></div>
+        <div class="level-track" role="meter" aria-label="实际音频电平" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="levelMeter">
+          <span id="levelBar"></span>
+        </div>
+      </div>
+      <p class="notice" id="localNotice" hidden>这是电脑上的预览页面。请用手机扫码收听，避免在电脑上形成回声。</p>
+    </section>
+
+    <section class="card">
+      <div class="setting-row volume-heading">
+        <label for="vol">音量</label>
+        <div class="volume-input"><input type="number" id="volNum" min="0" max="200" step="1" value="100" aria-label="音量百分比"><span>%</span></div>
+      </div>
+      <input class="range" type="range" id="vol" min="0" max="200" step="1" value="100" aria-label="音量">
+      <p class="secondary">手机音量键同样有效；超过 100% 是额外放大。</p>
+    </section>
+
+    <section class="card action-card">
+      <button class="button outlined" id="detailsButton">查看连接详情</button>
+      <button class="button text danger" id="stopButton">停止收听</button>
+    </section>
+
+    <aside class="card tip-card" id="homeTip">
+      <h2>放到手机桌面</h2>
+      <p class="secondary" id="homeTipText">Safari 点“分享 → 添加到主屏幕”，Chrome 打开菜单选“添加到主屏幕”。下次打开会记住电脑和设置。</p>
+      <button class="button text" id="homeTipClose">知道了</button>
+    </aside>
+  </div>
+
+  <div id="settingsView" hidden>
+    <section class="card">
+      <p class="section-label">播放与采集</p>
+      <h2>收听延迟</h2>
+      <div class="segments" id="presetSeg" role="radiogroup" aria-label="收听延迟">
+        <button role="radio" data-v="low" aria-checked="false">较低<small>40 ms</small></button>
+        <button role="radio" data-v="mid" aria-checked="true">均衡<small>70 ms</small></button>
+        <button role="radio" data-v="high" aria-checked="false">稳定<small>150 ms</small></button>
+      </div>
+      <p class="secondary" id="presetHelp">推荐。网络抖动时会自动加大缓冲，稳定后再收回。</p>
+      <div class="setting-row compact"><span>传输格式</span><strong>原始音质 · PCM</strong></div>
+      <p class="secondary">实时链路固定使用 1536 kbps 双声道 PCM，不依赖浏览器额外的 Opus 解码能力。</p>
+    </section>
+
+    <section class="card">
+      <p class="section-label">后台运行</p>
+      <h2>锁屏也能继续听</h2>
+      <p class="secondary">开始收听后可以直接锁屏或切换 App，无需选择单独模式。若浏览器暂停了声音，回页面或从系统媒体控制中点继续即可。</p>
+    </section>
+
+    <section class="card">
+      <p class="section-label">外观</p>
+      <h2>浅色与深色</h2>
+      <div class="segments" id="themeSeg" role="radiogroup" aria-label="浅色与深色">
+        <button role="radio" data-v="system" aria-checked="true">跟随系统</button>
+        <button role="radio" data-v="light" aria-checked="false">浅色</button>
+        <button role="radio" data-v="dark" aria-checked="false">深色</button>
+      </div>
+      <div class="background-controls">
+        <label class="color-picker">页面底色<input type="color" id="backgroundColor" value="#f2f6f4" aria-label="页面底色"></label>
+        <label class="button outlined file-button">选择图片<input type="file" id="backgroundImage" accept="image/*" hidden></label>
+        <button class="button text" id="backgroundReset">恢复默认</button>
+      </div>
+      <p class="secondary" id="backgroundStatus">当前使用与系统主题搭配的默认背景。</p>
+    </section>
+
+    <section class="card">
+      <p class="section-label">使用说明</p>
+      <h2>像 App 一样打开</h2>
+      <p class="secondary">Safari 使用“分享 → 添加到主屏幕”，Chrome 使用菜单里的“添加到主屏幕”。访问码、音量、延迟和外观会保存在当前浏览器。</p>
+    </section>
+  </div>
+</main>
+
+<nav class="bottom-nav" aria-label="页面导航">
+  <button data-view="home" class="active" aria-current="page">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 10.8 12 3l9 7.8v9.7a.5.5 0 0 1-.5.5H15v-7H9v7H3.5a.5.5 0 0 1-.5-.5z"/></svg><span>首页</span>
+  </button>
+  <button data-view="settings">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m19.4 13 .1-1-.1-1 2-1.5-2-3.4-2.4 1a8 8 0 0 0-1.7-1L15 3.5h-4L10.7 6a8 8 0 0 0-1.7 1l-2.4-1-2 3.4 2 1.5-.1 1 .1 1-2 1.5 2 3.4 2.4-1a8 8 0 0 0 1.7 1l.3 2.6h4l.3-2.5a8 8 0 0 0 1.7-1l2.4 1 2-3.4zM13 15.5A3.5 3.5 0 1 1 13 8a3.5 3.5 0 0 1 0 7.5z" transform="translate(1 -0.5) scale(.96)"/></svg><span>设置</span>
+  </button>
+</nav>
+
+<dialog id="detailsDialog" class="details-dialog">
+  <div class="dialog-heading"><h2>连接详情</h2><button class="icon-button" id="detailsClose" aria-label="关闭">×</button></div>
+  <dl class="stats">
+    <dt>电脑</dt><dd id="stPc">—</dd>
+    <dt>地址</dt><dd id="stAddress">—</dd>
+    <dt>估计延迟</dt><dd id="stLat">—</dd>
+    <dt>播放缓冲</dt><dd id="stBuf">—</dd>
+    <dt>往返网络</dt><dd id="stRtt">—</dd>
+    <dt>传输格式</dt><dd id="stCodec">PCM · 1536 kbps</dd>
+    <dt>网络速率</dt><dd id="stNet">—</dd>
+    <dt>应用缓冲欠载</dt><dd id="stUnd">—</dd>
+    <dt>主动追赶</dt><dd id="stSkips">—</dd>
+    <dt>序号缺口</dt><dd id="stLost">—</dd>
+    <dt>页面挂起恢复</dt><dd id="stOverflows">—</dd>
+    <dt>手机采样率</dt><dd id="stRate">—</dd>
+  </dl>
+</dialog>
+
+<div class="overlay" id="resumeOverlay" hidden>
+  <button class="button primary" id="resumeBtn">声音被系统暂停了，点这里继续</button>
+</div>
+<script src="/player-core.js"></script>
+<script src="/player.js"></script>
+</body>
+</html>

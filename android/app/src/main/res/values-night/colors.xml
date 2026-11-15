@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="sq_primary">#72D6BA</color>
+    <color name="sq_on_primary">#07382D</color>
+    <color name="sq_background">#101614</color>
+    <color name="sq_surface">#19211E</color>
+    <color name="sq_surface_variant">#27332E</color>
+    <color name="sq_control_stroke">#54645C</color>
+    <color name="sq_text">#E6EFEB</color>
+    <color name="sq_text_secondary">#A8B8B1</color>
+    <color name="sq_success">#72D6BA</color>
+    <color name="sq_warning">#F2B75C</color>
+    <color name="sq_error">#FFB4AB</color>
+</resources>

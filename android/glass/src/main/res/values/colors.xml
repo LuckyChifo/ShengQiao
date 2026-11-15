@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="sq_glass_fallback">#F2FFFFFF</color>
+    <color name="sq_glass_foreground">#18211E</color>
+    <color name="sq_glass_background_default">#F2F6F4</color>
+    <color name="sq_glass_background_scrim">#33FFFFFF</color>
+</resources>

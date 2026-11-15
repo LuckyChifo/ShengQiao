@@ -1,0 +1,11 @@
+numpy
+cffi
+soundcard
+PyAudioWPatch
+lameenc
+qrcode
+colorama
+pystray
+Pillow
+zeroconf
+pywebview
