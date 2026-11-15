@@ -23,6 +23,10 @@ FILE_TYPES = {
 }
 
 
+def posix_join(*parts):
+    return '/'.join(part for part in parts if part)
+
+
 def oid(*parts):
     return hashlib.md5('/'.join(parts).encode()).hexdigest()[:24].upper()
 
@@ -58,7 +62,7 @@ def main():
     files = []           # (relpath, name, type)
     for dirpath, dirnames, filenames in os.walk(SRC_DIR):
         rel = os.path.relpath(dirpath, SRC_DIR)
-        rel = '' if rel == '.' else rel
+        rel = '' if rel == '.' else rel.replace(os.sep, '/')
         if rel.endswith('.xcassets') or '.xcassets' in rel:
             dirnames[:] = []
             continue
@@ -66,17 +70,17 @@ def main():
         entries = []
         for d in dirnames:
             if d.endswith('.xcassets'):
-                files.append((os.path.join(rel, d), d, FILE_TYPES['.xcassets']))
-                entries.append(('file', os.path.join(rel, d)))
+                files.append((posix_join(rel, d), d, FILE_TYPES['.xcassets']))
+                entries.append(('file', posix_join(rel, d)))
             else:
-                entries.append(('group', os.path.join(rel, d)))
+                entries.append(('group', posix_join(rel, d)))
         dirnames[:] = [d for d in dirnames if not d.endswith('.xcassets')]
         for f in sorted(filenames):
             ext = os.path.splitext(f)[1]
             if ext not in FILE_TYPES or f.startswith('.'):
                 continue
-            files.append((os.path.join(rel, f), f, FILE_TYPES[ext]))
-            entries.append(('file', os.path.join(rel, f)))
+            files.append((posix_join(rel, f), f, FILE_TYPES[ext]))
+            entries.append(('file', posix_join(rel, f)))
         groups[rel] = entries
 
     ids = {

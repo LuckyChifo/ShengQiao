@@ -13,6 +13,7 @@
 		0835A619093BDE2BB579786F /* AppModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = CF6F2BC94B44A2CB664C1771 /* AppModel.swift */; };
 		B47DA0033364433CC60CEB3D /* Connection.swift in Sources */ = {isa = PBXBuildFile; fileRef = F470839094559821B9120D39 /* Connection.swift */; };
 		F597F65AE7B9628198A2FC66 /* Discovery.swift in Sources */ = {isa = PBXBuildFile; fileRef = 501CBC22E0AB1804551A77FD /* Discovery.swift */; };
+		19F7FBFA01FAFC383742AD0D /* UsbListener.swift in Sources */ = {isa = PBXBuildFile; fileRef = B53308B9BB020BB5CB5920FA /* UsbListener.swift */; };
 		D3991D9C9738AB8B460ADD3E /* ConnectView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00C84D0C633E06976BE0537E /* ConnectView.swift */; };
 		B28B9AEDC1F2761BAF942667 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 16316DFEAA5593265EE1383B /* ContentView.swift */; };
 		44E3A7922BC9F11A12EF9EF8 /* MeterView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8FD8310F5BD655FA9217698E /* MeterView.swift */; };
@@ -33,6 +34,7 @@
 		CF6F2BC94B44A2CB664C1771 /* AppModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppModel.swift; sourceTree = "<group>"; };
 		F470839094559821B9120D39 /* Connection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Connection.swift; sourceTree = "<group>"; };
 		501CBC22E0AB1804551A77FD /* Discovery.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Discovery.swift; sourceTree = "<group>"; };
+		B53308B9BB020BB5CB5920FA /* UsbListener.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UsbListener.swift; sourceTree = "<group>"; };
 		00C84D0C633E06976BE0537E /* ConnectView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectView.swift; sourceTree = "<group>"; };
 		16316DFEAA5593265EE1383B /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		8FD8310F5BD655FA9217698E /* MeterView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeterView.swift; sourceTree = "<group>"; };
@@ -105,6 +107,7 @@
 			children = (
 				F470839094559821B9120D39 /* Connection.swift */,
 				501CBC22E0AB1804551A77FD /* Discovery.swift */,
+				B53308B9BB020BB5CB5920FA /* UsbListener.swift */,
 			);
 			path = Net;
 			sourceTree = "<group>";
@@ -197,6 +200,7 @@
 				0835A619093BDE2BB579786F /* AppModel.swift in Sources */,
 				B47DA0033364433CC60CEB3D /* Connection.swift in Sources */,
 				F597F65AE7B9628198A2FC66 /* Discovery.swift in Sources */,
+				19F7FBFA01FAFC383742AD0D /* UsbListener.swift in Sources */,
 				D3991D9C9738AB8B460ADD3E /* ConnectView.swift in Sources */,
 				B28B9AEDC1F2761BAF942667 /* ContentView.swift in Sources */,
 				44E3A7922BC9F11A12EF9EF8 /* MeterView.swift in Sources */,

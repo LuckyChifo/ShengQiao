@@ -18,6 +18,8 @@ import numpy as np
 RATE = 48000          # 统一输出采样率
 CHANNELS = 2
 BLOCK = 480           # 10 ms 一块
+MAILBOX_BLOCKS = 4
+MAILBOX_MAX_AGE = 0.060
 IS_WINDOWS = sys.platform == 'win32'
 
 
@@ -111,6 +113,28 @@ class LinearResampler:
 
 # ----------------------------------------------------------------- sources
 
+def play_wasapi_stereo(player, samples):
+    """Write only the supplied frames to a SoundCard stereo player on Windows."""
+    from soundcard.mediafoundation import _ffi
+
+    # SoundCard's play() can submit all available frames even when the input is shorter.
+    samples = np.ascontiguousarray(samples, dtype=np.float32)
+    if samples.ndim != 2 or samples.shape[1] != 2:
+        raise ValueError('WASAPI output requires stereo samples')
+    offset = 0
+    while offset < len(samples):
+        frames = min(player._render_available_frames(), len(samples) - offset)
+        if frames <= 0:
+            time.sleep(0.001)
+            continue
+        chunk = samples[offset:offset + frames]
+        source = _ffi.from_buffer(chunk)
+        buffer = player._render_buffer(frames)
+        _ffi.memmove(buffer[0], source, chunk.nbytes)
+        player._render_release(frames)
+        offset += frames
+
+
 class SourceBase:
     kind = 'base'
     label = ''
@@ -181,7 +205,7 @@ class SoundcardSource(SourceBase):
                     except Exception:
                         room = n
                     if room >= n:
-                        p.play(silence)
+                        play_wasapi_stereo(p, silence)
                     else:
                         stop.wait(0.01)
         except Exception as e:  # 不影响主采集
@@ -267,13 +291,18 @@ class PyAudioSource(SourceBase):
                 dev = p.get_default_wasapi_loopback()
             ch = max(1, int(dev['maxInputChannels']))
             rate = int(dev['defaultSampleRate'])
-            q = queue.Queue(maxsize=400)
+            q = queue.Queue(maxsize=MAILBOX_BLOCKS)
 
             def callback(in_data, frame_count, time_info, status):
+                item = (time.monotonic(), in_data)
                 try:
-                    q.put_nowait(in_data)
+                    q.put_nowait(item)
                 except queue.Full:
-                    pass
+                    try:
+                        q.get_nowait()
+                    except queue.Empty:
+                        pass
+                    q.put_nowait(item)
                 return (None, pyaudio.paContinue)
 
             stream = p.open(format=pyaudio.paFloat32, channels=ch, rate=rate, input=True,
@@ -285,15 +314,17 @@ class PyAudioSource(SourceBase):
             resampler = LinearResampler(rate, RATE) if rate != RATE else None
             while not stop.is_set():
                 try:
-                    buf = q.get(timeout=0.1)
+                    captured_at, buf = q.get(timeout=0.1)
                 except queue.Empty:
+                    continue
+                if time.monotonic() - captured_at > MAILBOX_MAX_AGE:
                     continue
                 x = np.frombuffer(buf, dtype=np.float32).reshape(-1, ch)
                 x = to_stereo(x)
                 if resampler is not None:
                     x = resampler.process(x)
                 if len(x):
-                    emit(np.ascontiguousarray(x, dtype=np.float32))
+                    emit(np.ascontiguousarray(x, dtype=np.float32), captured_at)
         finally:
             if stream is not None:
                 try:
@@ -373,13 +404,134 @@ def make_source(name='auto', keepalive=True, drift_ppm=0.0):
 
 # ----------------------------------------------------------------- runner
 
+class CaptureMailbox:
+    """采集线程到事件循环的有界交接；drain 和丢弃通知都在事件循环执行。"""
+
+    def __init__(self, loop, on_block, on_discontinuity=None,
+                 max_blocks=MAILBOX_BLOCKS, max_age=MAILBOX_MAX_AGE, clock=time.monotonic):
+        if max_blocks < 1 or max_age <= 0:
+            raise ValueError('invalid capture mailbox limits')
+        self.loop = loop
+        self.on_block = on_block
+        self.on_discontinuity = on_discontinuity
+        self.max_blocks = max_blocks
+        self.max_age = max_age
+        self.clock = clock
+        self.dropped = 0
+        self.discontinuities = 0
+        self.last_delivery_age_ms = None
+        self._items = collections.deque()
+        self._pending_drops = 0
+        self._source_changed = False
+        self._scheduled = False
+        self._closed = False
+        self._lock = threading.Lock()
+
+    def offer(self, block, produced_at=None):
+        now = self.clock()
+        produced_at = now if produced_at is None else produced_at
+        with self._lock:
+            if self._closed:
+                return
+            self._items.append((produced_at, block))
+            dropped = 0
+            while self._items and now - self._items[0][0] > self.max_age:
+                self._items.popleft()
+                dropped += 1
+            while len(self._items) > self.max_blocks:
+                self._items.popleft()
+                dropped += 1
+            self.dropped += dropped
+            self._pending_drops += dropped
+            if self._scheduled:
+                return
+            self._scheduled = True
+            try:
+                self.loop.call_soon_threadsafe(self._drain)
+            except RuntimeError:
+                self._scheduled = False
+                self._closed = True
+                self._items.clear()
+                self._pending_drops = 0
+
+    def mark_discontinuity(self):
+        with self._lock:
+            if self._closed:
+                return
+            self._pending_drops += len(self._items)
+            self.dropped += len(self._items)
+            self._items.clear()
+            self._source_changed = True
+
+    def _drain(self):
+        with self._lock:
+            if self._closed:
+                self._scheduled = False
+                return
+            items = list(self._items)
+            self._items.clear()
+            dropped = self._pending_drops
+            self._pending_drops = 0
+            source_changed = self._source_changed
+            self._source_changed = False
+        try:
+            now = self.clock()
+            fresh = [item for item in items if now - item[0] <= self.max_age]
+            new_drops = len(items) - len(fresh)
+            # Sources can deliver two adjacent 10 ms blocks at once. Keep the
+            # short fresh batch, but recover from a stalled loop at its live edge.
+            keep = 1 if len(items) > 2 or dropped else 2
+            new_drops += max(0, len(fresh) - keep)
+            fresh = fresh[-keep:]
+            dropped += new_drops
+            with self._lock:
+                self.dropped += new_drops
+                if dropped or source_changed:
+                    self.discontinuities += 1
+                if fresh:
+                    self.last_delivery_age_ms = max(0.0, (now - fresh[-1][0]) * 1000)
+            if (dropped or source_changed) and self.on_discontinuity is not None:
+                self.on_discontinuity(dropped)
+            for produced_at, block in fresh:
+                self.on_block(block, produced_at)
+        finally:
+            with self._lock:
+                if self._closed:
+                    self._items.clear()
+                    self._pending_drops = 0
+                    self._scheduled = False
+                elif self._items:
+                    self.loop.call_soon(self._drain)
+                else:
+                    self._scheduled = False
+
+    def stats(self):
+        with self._lock:
+            count = len(self._items)
+            oldest = self._items[0][0] if self._items else None
+            return {
+                'queueMs': count * BLOCK * 1000 / RATE,
+                'oldestAgeMs': 0 if oldest is None else max(0.0, (self.clock() - oldest) * 1000),
+                'dropped': self.dropped,
+                'discontinuities': self.discontinuities,
+                'lastDeliveryAgeMs': self.last_delivery_age_ms,
+            }
+
+    def close(self):
+        with self._lock:
+            self._closed = True
+            self._items.clear()
+            self._pending_drops = 0
+
+
 class CaptureRunner:
     """在后台线程里运行采集源，按需启停，出错自动重试，切成 10 ms 的块交出去。"""
 
-    def __init__(self, source, on_block, device_pref=None, fallback=None):
+    def __init__(self, source, on_block, device_pref=None, fallback=None, on_discontinuity=None):
         self.source = source
         self.fallback = fallback          # 主采集方式连续出错时，换用的备用采集源（工厂函数）
-        self.on_block = on_block          # 在采集线程里被调用：on_block(block)
+        self.on_block = on_block
+        self.on_discontinuity = on_discontinuity
         self.device_pref = device_pref
         self.state = 'idle'               # idle / opening / running / error
         self.error = ''
@@ -387,6 +539,7 @@ class CaptureRunner:
         self._want = threading.Event()
         self._stop_run = threading.Event()
         self._acc = np.zeros((0, CHANNELS), np.float32)
+        self._acc_stamp = None
         threading.Thread(target=self._main, name='capture', daemon=True).start()
 
     @property
@@ -410,12 +563,16 @@ class CaptureRunner:
         self.error = ''
         log('开始采集：%s' % name)
 
-    def _emit(self, x):
+    def _emit(self, x, captured_at=None):
+        if captured_at is None:
+            captured_at = time.monotonic()
+        stamp = captured_at if self._acc_stamp is None else self._acc_stamp
         acc = np.concatenate([self._acc, x]) if len(self._acc) else x
         nb = len(acc) // BLOCK
         for i in range(nb):
-            self.on_block(acc[i * BLOCK:(i + 1) * BLOCK].copy())
+            self.on_block(acc[i * BLOCK:(i + 1) * BLOCK].copy(), stamp if i == 0 else captured_at)
         self._acc = acc[nb * BLOCK:].copy()
+        self._acc_stamp = (captured_at if nb else stamp) if len(self._acc) else None
 
     def _main(self):
         delay = 1.0
@@ -424,11 +581,14 @@ class CaptureRunner:
             self._want.wait()
             self._stop_run.clear()
             self._acc = np.zeros((0, CHANNELS), np.float32)
+            self._acc_stamp = None
             self.state = 'opening'
             ran = [False]
 
             def opened(name):
                 ran[0] = True
+                if self.on_discontinuity is not None:
+                    self.on_discontinuity()
                 self._opened(name)
             try:
                 self.source.run(self.device_pref, self._emit, self._stop_run, opened)

@@ -1,0 +1,188 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">声桥</string>
+    <string name="nav_home">首页</string>
+    <string name="nav_devices">设备</string>
+    <string name="nav_settings">设置</string>
+
+    <string name="home_title">电脑声音与手机麦克风，随时相连</string>
+    <string name="home_connection_hint">选择电脑并查看连接状态</string>
+    <string name="home_listen">扬声器</string>
+    <string name="home_listen_description">在手机上接收并播放电脑正在输出的声音</string>
+    <string name="home_listen_on">扬声器已开启</string>
+    <string name="home_listen_off">扬声器已关闭</string>
+    <string name="home_microphone">麦克风</string>
+    <string name="home_microphone_description">把手机麦克风发送到电脑的 CABLE Input</string>
+    <string name="home_microphone_off">麦克风已关闭</string>
+    <string name="home_microphone_on">麦克风已开启</string>
+    <string name="home_microphone_busy">另一台手机正在使用电脑的麦克风，本机声音未传到电脑</string>
+    <string name="home_microphone_waiting">手机麦克风已开启，等待电脑接收</string>
+    <string name="home_microphone_remote">电脑端状态：%1$s</string>
+    <string name="home_microphone_error">电脑端错误：%1$s</string>
+    <string name="home_mic_permission_denied">没有麦克风权限，无法使用“麦克风”</string>
+    <string name="home_volume">音量</string>
+    <string name="home_volume_format">音量 %1$d%%</string>
+    <string name="home_volume_description">调整声桥接收音频的增益，范围 0–200%，不是系统媒体音量</string>
+    <string name="home_volume_edit">输入</string>
+    <string name="home_volume_input_title">设置音量</string>
+    <string name="home_volume_input_hint">音量百分比</string>
+    <string name="home_volume_input_range">可输入 0–200 的整数</string>
+    <string name="home_volume_input_value">%1$d</string>
+    <string name="home_volume_input_invalid">请输入 0–200 之间的整数</string>
+    <string name="cancel">取消</string>
+    <string name="home_level_title">音频电平</string>
+    <string name="home_level_unavailable">暂无电平数据</string>
+    <string name="home_level_description">仅显示真实音频电平；音频层尚未提供数据时，不显示模拟动画</string>
+    <string name="home_diagnostics_title">当前连接</string>
+    <string name="home_diagnostics_description">查看当前电脑、往返网络与播放缓冲；更多诊断可打开连接详情</string>
+    <string name="home_details">查看连接详情</string>
+    <string name="home_disconnect">断开当前电脑</string>
+    <string name="home_details_title">连接详情</string>
+    <string name="home_details_network_group">电脑与网络</string>
+    <string name="home_details_playback_group">播放与编码</string>
+    <string name="home_details_output_group">手机音频输出</string>
+    <string name="home_details_status_group">连接状态</string>
+    <string name="home_details_device">电脑：%1$s</string>
+    <string name="home_details_address">地址：%1$s:%2$d</string>
+    <string name="home_details_rtt">往返网络：%1$s</string>
+    <string name="home_summary_format">%1$s\n%2$s</string>
+    <string name="device_address_format">%1$s:%2$d</string>
+    <string name="home_details_buffer">播放缓冲：%1$d / %2$d ms</string>
+    <string name="home_details_bitrate_pcm">传输码率：原始音质 · 1536 kbps</string>
+    <string name="home_details_bitrate_opus">传输码率：Opus · %1$d kbps</string>
+    <string name="home_details_underruns">应用缓冲欠载：%1$d 次</string>
+    <string name="home_details_lost">网络序号缺口：%1$d 帧</string>
+    <string name="home_details_catchups">PCM 主动追赶：%1$d 次</string>
+    <string name="home_details_mode">请求 %1$s · 当前 %2$s</string>
+    <string name="home_details_codec_delay">音频帧长 10 ms · 编码前瞻 %1$s</string>
+    <string name="fractional_milliseconds">%1$.1f ms</string>
+    <string name="home_details_output">AudioTrack 排队 %1$s · 有效缓冲 %2$d / 容量 %3$d 帧 · 欠载 %4$d 次</string>
+    <string name="home_details_route">输出设备 %1$s · 系统推荐 %2$d Hz / %3$d 帧 · AudioTrack 性能模式 %4$s</string>
+    <string name="codec_no_opus">电脑端缺少 Opus 编码器，当前使用 PCM</string>
+    <string name="codec_encoder">Opus 编码失败，当前使用 PCM</string>
+    <string name="codec_decoder">Opus 解码失败，当前使用 PCM</string>
+    <string name="home_details_buffering">正在缓冲，等待音频恢复</string>
+    <string name="home_details_error">最近错误：%1$s</string>
+    <string name="home_not_connected">连接电脑后可查看诊断信息</string>
+    <string name="not_measured">未测得</string>
+    <string name="milliseconds">%1$d ms</string>
+    <string name="close">关闭</string>
+    <string name="info_show_description">查看说明</string>
+
+    <string name="devices_title">选择一台电脑</string>
+    <string name="devices_subtitle">自动发现同一局域网内运行声桥的电脑</string>
+    <string name="devices_recent">最近连接</string>
+    <string name="devices_no_recent">暂无最近连接</string>
+    <string name="devices_recent_hint">成功连接后会在这里显示电脑</string>
+    <string name="devices_recent_action">使用此设备</string>
+    <string name="devices_discovered">局域网设备</string>
+    <string name="devices_refresh">重新搜索</string>
+    <string name="devices_manual">手动连接</string>
+    <string name="devices_searching">正在搜索局域网电脑…</string>
+    <string name="devices_empty">暂未发现电脑，可检查电脑端声桥或手动连接</string>
+    <string name="devices_manual_title">连接电脑</string>
+    <string name="devices_host">电脑 IP 地址</string>
+    <string name="devices_port">端口</string>
+    <string name="devices_key">访问码</string>
+    <string name="devices_host_required">请填写电脑 IP 地址</string>
+    <string name="devices_port_invalid">端口应为 1–65535</string>
+    <string name="devices_connect">连接</string>
+    <string name="devices_cancel">取消</string>
+    <string name="devices_notification_denied">通知权限未授予，后台运行时可能看不到常驻通知</string>
+    <string name="devices_connect_failed">无法启动连接服务，请稍后重试</string>
+    <string name="discovery_error_permission">没有局域网发现权限，请在系统设置中允许后重试</string>
+    <string name="discovery_error_start">无法启动局域网搜索，请检查 Wi-Fi 后重试</string>
+    <string name="discovery_error_resolve">无法解析设备：%1$s</string>
+    <string name="discovery_error_resolve_generic">部分设备解析失败，可稍后重新搜索</string>
+
+    <string name="settings_title">设置</string>
+    <string name="settings_audio_group">播放与采集</string>
+    <string name="settings_low_latency">低延迟模式</string>
+    <string name="settings_low_latency_info">查看低延迟模式说明</string>
+    <string name="settings_low_latency_description">让电脑声音更快传到手机。适合网络稳定时使用，网络波动时可能更容易断音。只影响收听电脑声音。</string>
+    <string name="latency_short_low">低延迟</string>
+    <string name="latency_short_fallback">已切回标准</string>
+    <string name="latency_standard">标准</string>
+    <string name="latency_active">低延迟模式自动调整缓冲</string>
+    <string name="latency_disconnected">连接后生效</string>
+    <string name="latency_waiting">开始收听后生效</string>
+    <string name="latency_negotiating">正在启用低延迟模式</string>
+    <string name="latency_server_unsupported">当前使用标准模式，请更新电脑端以开启低延迟</string>
+    <string name="latency_output_unsupported">系统音频输出受限，已切回标准</string>
+    <string name="latency_processing_overload">音频处理繁忙，已切回标准</string>
+    <string name="latency_network_unstable">网络波动，已切回标准</string>
+    <string name="settings_buffer">标准模式缓冲</string>
+    <string name="settings_buffer_description">数值越小延迟越低，网络不稳定时可选择更高档位；这不是实测网络延迟</string>
+    <string name="settings_bitrate">电脑声音传输码率</string>
+    <string name="settings_bitrate_description">只影响电脑到手机的声音；码率越低越省带宽</string>
+    <string name="settings_bitrate_pcm">当前：原始音质 · 1536 kbps</string>
+    <string name="settings_bitrate_opus">当前：Opus · %1$d kbps</string>
+    <string name="settings_bitrate_unavailable">这台电脑未提供 Opus 编码，当前使用原始音质</string>
+    <string name="settings_denoise">电脑端麦克风降噪</string>
+    <string name="settings_denoise_description">由电脑端执行并确认，连接电脑后可调整</string>
+    <string name="settings_echo">消除回声</string>
+    <string name="settings_echo_description">手机外放同时开麦时建议开启</string>
+    <string name="settings_appearance_group">外观</string>
+    <string name="settings_theme">浅色与深色</string>
+    <string name="settings_theme_description">跟随系统、固定浅色或固定深色；自定义纯色和图片背景会独立保留</string>
+    <string name="settings_material">通透材质</string>
+    <string name="settings_material_description">跟随系统时使用荣耀系统的材质和通透度设置；也可手动指定液态或磨砂。不支持时使用普通原生样式</string>    <string name="settings_material_supported">当前设备支持荣耀通透效果</string>
+    <string name="settings_material_unsupported">当前设备未提供荣耀通透能力，使用普通原生样式</string>
+    <string name="settings_page_background">页面背景</string>
+    <string name="settings_page_background_description">纯色或图片会显示在所有页面及悬浮底部栏后面</string>
+    <string name="settings_background_color">选择纯色</string>
+    <string name="settings_background_image">选择图片</string>
+    <string name="settings_background_reset">恢复默认</string>
+    <string name="settings_background_current_default">当前跟随系统浅色 / 深色背景</string>
+    <string name="settings_background_current_color">当前纯色：#%1$08X</string>
+    <string name="settings_background_current_image">当前使用自定义图片</string>
+    <string name="settings_background_color_title">选择背景颜色</string>
+    <string name="settings_background_color_hint">#RRGGBB 或 #AARRGGBB</string>
+    <string name="settings_background_color_invalid">请输入 #RRGGBB 或 #AARRGGBB 格式的颜色</string>
+    <string name="settings_background_image_permission_error">无法保存图片读取权限，请重新选择</string>
+    <string name="settings_background_group">后台运行</string>
+    <string name="settings_background_title">息屏持续工作</string>
+    <string name="settings_background_description">保留声桥常驻通知，并允许系统后台运行。部分设备还需要允许自启动。</string>
+    <string name="settings_background_action">检查后台运行权限</string>
+    <string name="settings_background_allowed">系统已允许忽略电池优化</string>
+    <string name="settings_background_request">尚未允许忽略电池优化，点击可前往系统设置</string>
+    <string name="settings_background_already_allowed">已允许后台运行</string>
+
+    <string name="state_service_unavailable">连接服务不可用</string>
+    <string name="state_idle">尚未连接</string>
+    <string name="state_connecting">正在连接电脑…</string>
+    <string name="state_connected">已连接 · %1$s</string>
+    <string name="state_error">连接失败</string>
+    <string name="state_reconnecting">连接中断，等待自动重连</string>
+    <string name="state_need_key">访问码不正确，请重新输入</string>
+    <string name="unknown_computer">未选择电脑</string>
+
+    <string-array name="buffer_options">
+        <item>较低 · 40 ms</item>
+        <item>均衡 · 70 ms（推荐）</item>
+        <item>稳定 · 150 ms</item>
+    </string-array>
+    <string-array name="bitrate_options">
+        <item>原始音质 · 1536 kbps</item>
+        <item>超高品质 · 320 kbps</item>
+        <item>高音质 · 256 kbps</item>
+        <item>标准 · 128 kbps（推荐）</item>
+        <item>省流 · 64 kbps</item>
+    </string-array>
+    <string-array name="denoise_options">
+        <item>关闭</item>
+        <item>轻度</item>
+        <item>RNNoise（推荐）</item>
+        <item>强力</item>
+    </string-array>
+    <string-array name="theme_options">
+        <item>跟随系统</item>
+        <item>浅色</item>
+        <item>深色</item>
+    </string-array>
+    <string-array name="material_options">
+        <item>跟随系统</item>
+        <item>液态玻璃</item>
+        <item>磨砂玻璃</item>
+    </string-array>
+</resources>

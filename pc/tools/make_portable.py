@@ -16,8 +16,12 @@ import zipfile
 
 PC = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 ROOT = os.path.dirname(PC)
-REQS = ['soundcard', 'numpy', 'cffi', 'qrcode', 'lameenc', 'PyAudioWPatch', 'colorama', 'pystray', 'Pillow', 'zeroconf']
 SKIP_WHEELS = ('python_xlib',)          # pystray's Linux-only dependency
+
+
+def load_requirements():
+    with open(os.path.join(PC, 'requirements.txt'), encoding='utf-8') as f:
+        return [line.strip() for line in f if line.strip() and not line.lstrip().startswith('#')]
 
 
 def crlf(src, dst, bom=False):
@@ -36,9 +40,8 @@ def main():
     if not wheels:
         wheels = os.path.join(a.out, '_wheels')
         os.makedirs(wheels, exist_ok=True)
-        subprocess.check_call([sys.executable, '-m', 'pip', 'download', '--quiet', '--platform', 'win_amd64',
-                               '--python-version', '3.12', '--only-binary=:all:', '--implementation', 'cp',
-                               '-d', wheels] + REQS)
+        subprocess.check_call([sys.executable, '-m', 'pip', 'wheel', '--quiet',
+                               '--wheel-dir', wheels] + load_requirements())
     dst = os.path.join(a.out, 'ShengQiao')
     shutil.rmtree(dst, ignore_errors=True)
     os.makedirs(os.path.join(dst, 'deps'))
@@ -61,6 +64,7 @@ def main():
     shutil.copytree(os.path.join(PC, 'app'), os.path.join(dst, 'app'),
                     ignore=shutil.ignore_patterns('__pycache__', '*.pyc', '*.so', '*.dylib'))
     crlf(os.path.join(PC, 'app', 'python312._pth'), os.path.join(dst, 'app', 'python312._pth'))
+    crlf(os.path.join(PC, 'requirements.txt'), os.path.join(dst, 'requirements.txt'))
     crlf(os.path.join(PC, 'start.bat'), os.path.join(dst, 'start.bat'))
     for bat in ('firewall.bat', 'selftest.bat', 'debug.bat'):
         crlf(os.path.join(PC, bat), os.path.join(dst, bat))

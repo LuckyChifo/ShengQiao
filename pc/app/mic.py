@@ -9,7 +9,7 @@ import time
 import numpy as np
 
 import denoise
-from capture import log, IS_WINDOWS
+from capture import log, IS_WINDOWS, play_wasapi_stereo
 
 OUT_RATE = 48000
 BLOCK = 480                      # 每次写 10 ms
@@ -227,6 +227,13 @@ class SoundcardOutput:
         spk = self.sc.get_speaker(dev_id)
         return spk.name, spk.player(samplerate=OUT_RATE, channels=2, blocksize=OUT_RATE // 10)
 
+    @staticmethod
+    def play(player, data):
+        if IS_WINDOWS:
+            play_wasapi_stereo(player, data)
+        else:
+            player.play(data)
+
 
 class FakeOutput:
     """测试用：按（可带时钟偏差的）真实时间消费数据，记录写出的声音。"""
@@ -285,6 +292,10 @@ class FakeOutput:
 
     def open(self, dev_id):
         return self.name, FakeOutput._Player(self)
+
+    @staticmethod
+    def play(player, data):
+        player.play(data)
 
 
 class MicSink:
@@ -381,7 +392,10 @@ class MicSink:
     def _main(self):
         while True:
             self._want.wait()
-            self._stop.clear()
+            with self._lock:
+                if not self._want.is_set():
+                    continue
+                self._stop.clear()
             dev = self.pick_device() if self.output is not None else None
             if dev is None:
                 self.state = 'no-cable'
@@ -414,6 +428,6 @@ class MicSink:
                 pad = 0
             if pad < pad_target:
                 blk = self.denoiser.process(self.jitter.pull(BLOCK))
-                p.play(np.repeat(blk[:, None], 2, axis=1))
+                self.output.play(p, np.repeat(blk[:, None], 2, axis=1))
             else:
                 time.sleep(0.002)

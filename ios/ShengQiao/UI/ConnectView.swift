@@ -24,6 +24,21 @@ struct ConnectView: View {
                 }
 
                 Section {
+                    Toggle(isOn: $model.usbEnabled) {
+                        Label("USB 直连", systemImage: "cable.connector").foregroundColor(Theme.text)
+                    }
+                    if model.viaUSB {
+                        Label("已通过数据线连着电脑，不占 Wi-Fi", systemImage: "checkmark.circle")
+                            .font(.callout).foregroundColor(Theme.amber)
+                    }
+                } header: {
+                    Text("数据线")
+                } footer: {
+                    Text("用数据线把手机接到电脑，保持声桥在前台，电脑上的声桥会自动连过来。电脑需要装 iTunes 或“Apple 设备”App。")
+                }
+                .listRowBackground(Theme.cabinet)
+
+                Section {
                     if discovery.pcs.isEmpty {
                         HStack(spacing: 12) {
                             ProgressView().tint(Theme.muted)
@@ -34,7 +49,7 @@ struct ConnectView: View {
                     ForEach(discovery.pcs) { pc in
                         Button {
                             if let k = model.savedKey(for: pc.id) {
-                                model.connect(pc.target, key: k)
+                                model.connect(pc.target, key: k, pcId: pc.id)
                                 dismiss()
                             } else {
                                 codeInput = ""
@@ -99,7 +114,7 @@ struct ConnectView: View {
                 }
                 .listRowBackground(Theme.cabinet)
 
-                if model.hasTarget {
+                if model.hasTarget || model.viaUSB {
                     Section {
                         Button("断开连接", role: .destructive) {
                             model.disconnect()
@@ -133,7 +148,7 @@ struct ConnectView: View {
                     .autocorrectionDisabled()
                 Button("连接") {
                     if let pc = askCodeFor {
-                        model.connect(pc.target, key: codeInput)
+                        model.connect(pc.target, key: codeInput, pcId: pc.id)
                         askCodeFor = nil
                         dismiss()
                     }

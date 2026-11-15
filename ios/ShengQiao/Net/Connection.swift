@@ -34,34 +34,31 @@ final class Connection {
     }
 
     let queue = DispatchQueue(label: "shengqiao.net", qos: .userInteractive)
-    var onEvent: ((Event) -> Void)?
+    var onEvent: ((Event, UUID) -> Void)?
 
     private var conn: NWConnection?
-    private var generation = 0
+    // 只在 queue 上访问。连接关闭后仍用原会话 ID 报告关闭事件。
+    private(set) var session: UUID?
     private var inFlight = 0
 
     /// 正在发送但还没交给系统的二进制帧数（用于网络卡住时丢弃麦克风数据，保持低延迟）
     var pendingFrames: Int { inFlight }
 
-    func connect(_ target: ConnTarget, key: String) {
-        queue.async { self.start(target, key: key) }
+    func connect(_ target: ConnTarget, key: String, session: UUID) {
+        queue.async { self.start(target, key: key, session: session) }
     }
 
     func disconnect() {
-        queue.async {
-            self.generation += 1
-            self.conn?.cancel()
-            self.conn = nil
-            self.inFlight = 0
-        }
+        queue.async { self.resetTransport() }
     }
 
-    private func start(_ target: ConnTarget, key: String) {
-        generation += 1
-        let gen = generation
-        conn?.cancel()
-        inFlight = 0
+    /// 接管一条已经建立的入站连接（USB 直连：电脑经 usbmux 连进手机的监听端口，WebSocket 握手由系统在监听端完成）。
+    /// 之后的收发、事件和 Wi-Fi 连接完全一样。
+    func adopt(_ c: NWConnection, session: UUID) {
+        queue.async { self.attach(c, session: session) }
+    }
 
+    private func start(_ target: ConnTarget, key: String, session: UUID) {
         let ws = NWProtocolWebSocket.Options()
         ws.autoReplyPing = true
         ws.maximumMessageSize = 1 << 20
@@ -77,19 +74,24 @@ final class Connection {
         params.serviceClass = .interactiveVoice        // Wi-Fi 语音优先级
         params.includePeerToPeer = false
 
-        let c = NWConnection(to: target.endpoint, using: params)
+        attach(NWConnection(to: target.endpoint, using: params), session: session)
+    }
+
+    private func attach(_ c: NWConnection, session: UUID) {
+        resetTransport()
+        self.session = session
         conn = c
         c.stateUpdateHandler = { [weak self] state in
-            guard let self = self, gen == self.generation else { return }
+            guard let self = self, self.session == session else { return }
             switch state {
             case .ready:
-                self.onEvent?(.ready)
-                self.receive(c, gen)
+                self.onEvent?(.ready, session)
+                self.receive(c, session: session)
             case .waiting(let error):
                 // 网络不通（例如不在同一个 Wi-Fi）：交给上层重试
-                self.finish(gen, reason: Connection.describe(error))
+                self.finishOnQueue(session, reason: Connection.describe(error))
             case .failed(let error):
-                self.finish(gen, reason: Connection.describe(error))
+                self.finishOnQueue(session, reason: Connection.describe(error))
             default:
                 break
             }
@@ -97,45 +99,50 @@ final class Connection {
         c.start(queue: queue)
     }
 
-    private func finish(_ gen: Int, reason: String?, badKey: Bool = false) {
-        guard gen == generation else { return }
-        generation += 1
+    /// 在 queue 上关闭指定会话，供接收错误和超时检测共用。
+    func finishOnQueue(_ session: UUID, reason: String?, badKey: Bool = false) {
+        guard self.session == session else { return }
+        resetTransport()
+        onEvent?(badKey ? .badKey : .closed(reason), session)
+    }
+
+    private func resetTransport() {
+        session = nil
         conn?.cancel()
         conn = nil
         inFlight = 0
-        onEvent?(badKey ? .badKey : .closed(reason))
     }
 
-    private func receive(_ c: NWConnection, _ gen: Int) {
+    private func receive(_ c: NWConnection, session: UUID) {
         c.receiveMessage { [weak self] data, context, _, error in
-            guard let self = self, gen == self.generation else { return }
+            guard let self = self, self.session == session else { return }
             if let error = error {
-                self.finish(gen, reason: Connection.describe(error))
+                self.finishOnQueue(session, reason: Connection.describe(error))
                 return
             }
             guard let context = context else {
-                self.finish(gen, reason: "电脑断开了连接")
+                self.finishOnQueue(session, reason: "电脑断开了连接")
                 return
             }
             if let meta = context.protocolMetadata(definition: NWProtocolWebSocket.definition)
                 as? NWProtocolWebSocket.Metadata {
                 switch meta.opcode {
                 case .binary:
-                    if let d = data { self.onEvent?(.audio(d)) }
+                    if let d = data { self.onEvent?(.audio(d), session) }
                 case .text:
                     if let d = data, let obj = (try? JSONSerialization.jsonObject(with: d)) as? [String: Any] {
-                        self.onEvent?(.text(obj))
+                        self.onEvent?(.text(obj), session)
                     }
                 case .close:
                     var bad = false
                     if case .privateCode(let code) = meta.closeCode, code == 4001 { bad = true }
-                    self.finish(gen, reason: bad ? nil : "电脑关闭了连接", badKey: bad)
+                    self.finishOnQueue(session, reason: bad ? nil : "电脑关闭了连接", badKey: bad)
                     return
                 default:
                     break
                 }
             }
-            self.receive(c, gen)
+            self.receive(c, session: session)
         }
     }
 
@@ -154,14 +161,13 @@ final class Connection {
 
     /// 只能在 `queue` 上调用（麦克风发送定时器就在这个队列上）
     func sendBinaryOnQueue(_ data: Data) {
-        guard let c = conn else { return }
+        guard let c = conn, let session = session else { return }
         if inFlight > 40 { return }            // 积压超过 0.4 秒：丢掉，保证低延迟
         inFlight += 1
-        let gen = generation
         let meta = NWProtocolWebSocket.Metadata(opcode: .binary)
         let ctx = NWConnection.ContentContext(identifier: "mic", metadata: [meta])
         c.send(content: data, contentContext: ctx, isComplete: true, completion: .contentProcessed { [weak self] _ in
-            guard let self = self, gen == self.generation else { return }
+            guard let self = self, self.session == session else { return }
             self.inFlight -= 1
         })
     }

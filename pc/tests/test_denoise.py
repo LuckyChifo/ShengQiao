@@ -1,61 +1,43 @@
 """Quality tests for app/denoise.py on synthetic speech + noise.
 
-Speech: espeak-ng TTS (Chinese + English) if available, else a voiced-speech-like synthetic signal.
+Speech: bundled eSpeak NG English and Mandarin fixtures, with fixed pauses.
 For each noise type and mode, reports:
   noise_db   how much quieter the pauses get (negative = quieter)
   speech_db  how much the speech parts change in level (close to 0 = kept)
-  snr_gain   segmental SNR improvement against the clean speech (dB)
+  snr_gain   scale-invariant SNR improvement against the clean speech (dB)
   ms/frame   CPU time per 10 ms frame
 Run: python tests/test_denoise.py
 """
-import os
-import shutil
-import subprocess
+from pathlib import Path
 import sys
-import tempfile
 import time
 import wave
 
 import numpy as np
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'app'))
+TEST_DIR = Path(__file__).resolve().parent
+sys.path.insert(0, str(TEST_DIR.parent / 'app'))
 import denoise  # noqa: E402
 
 SR = 48000
+SPEECH_FIXTURES = TEST_DIR / 'fixtures' / 'denoise'
 rng = np.random.default_rng(7)
 
 
 def load_wav(path):
-    with wave.open(path) as w:
+    with wave.open(str(path), 'rb') as w:
         sr = w.getframerate()
         x = np.frombuffer(w.readframes(w.getnframes()), dtype='<i2').astype(np.float64) / 32768
-        if w.getnchannels() > 1:
-            x = x.reshape(-1, w.getnchannels())[:, 0]
     t_new = np.arange(int(len(x) * SR / sr)) / SR
     return np.interp(t_new, np.arange(len(x)) / sr, x)
 
 
 def speech():
-    parts = []
-    tts = shutil.which('espeak-ng')
-    if tts:
-        d = tempfile.mkdtemp()
-        for i, (v, text) in enumerate([('cmn', '今天我们来测试一下声桥的降噪效果，看看风扇和键盘的噪声能不能去掉。'),
-                                       ('en', 'The quick brown fox jumps over the lazy dog. Testing noise reduction.')]):
-            p = os.path.join(d, '%d.wav' % i)
-            subprocess.run([tts, '-v', v, '-w', p, text], check=True, capture_output=True)
-            parts.append(load_wav(p))
-    else:   # fallback: harmonic bursts with moving formants
-        for k in range(8):
-            n = int(SR * 0.6)
-            t = np.arange(n) / SR
-            f0 = 120 + 40 * np.sin(2 * np.pi * 1.5 * t + k)
-            ph = 2 * np.pi * np.cumsum(f0) / SR
-            v = sum(np.sin(h * ph) / h for h in range(1, 30))
-            parts.append(v * np.hanning(n) * 0.3)
     out = [np.zeros(SR * 2)]
-    for p in parts:
-        out += [p / (np.max(np.abs(p)) + 1e-9) * 0.5, np.zeros(SR)]
+    # The 7-second end-to-end check uses the first utterance and its trailing pause.
+    for name in ('en.wav', 'cmn.wav'):
+        samples = load_wav(SPEECH_FIXTURES / name)
+        out.extend([samples / np.max(np.abs(samples)) * 0.5, np.zeros(SR)])
     return np.concatenate(out)
 
 
@@ -112,7 +94,7 @@ def metrics(clean, noisy, y):
     db = lambda a: 10 * np.log10(np.mean(a ** 2) + 1e-20)
     noise_db = db(y[quiet_mask]) - db(noisy[quiet_mask])
     speech_db = db(y[speech_mask]) - db(clean[speech_mask])
-    # segmental SNR with best scalar gain
+    # Scale-invariant SNR over the aligned clip, with the best scalar gain.
     def snr(z):
         a = np.dot(z, clean) / (np.dot(clean, clean) + 1e-20)
         return 10 * np.log10(np.sum((a * clean) ** 2) / (np.sum((z - a * clean) ** 2) + 1e-20))

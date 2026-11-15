@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """声桥 —— Windows 电脑和 iPhone 之间的双向音频桥。
 
-电脑 → 手机：抓取电脑正在播放的声音（WASAPI 环回），手机上的“声桥”App 或 Safari 收听。
+电脑 → 手机：抓取电脑正在播放的声音（WASAPI 环回），手机上的“声桥”App 或 Safari/Chrome 网页收听。
 手机 → 电脑：iPhone 麦克风的声音写进 VB-CABLE（CABLE Input），其他软件选 CABLE Output 当麦克风。
 """
 import os
@@ -26,20 +26,26 @@ import secrets
 import socket
 import struct
 import threading
+import tempfile
 import time
 import urllib.parse
 import uuid
 
 import numpy as np
 
+import audio_pipeline
+from stream_sender import StreamSender
 import capture
 import denoise
 import mic as micmod
+import netinfo
+import opus_codec
+import usbmux
 from capture import log, IS_WINDOWS, LOG_LINES
 
 try:
     import lameenc
-except Exception:              # 没有 lameenc 时网页版的“锁屏也能听”不可用，其余正常
+except Exception:              # 没有 lameenc 时兼容 MP3 接口不可用，其余正常
     lameenc = None
 
 try:
@@ -56,7 +62,8 @@ SERVICE_TYPE = '_shengqiao._tcp.local.'
 RATE = capture.RATE
 BLOCK = capture.BLOCK
 MP3_KBPS = 256
-WS_MAX_BACKLOG = 96 * 1024      # 每个手机最多积压约 0.5 秒，超出直接丢弃（保证低延迟）
+WS_MAX_BACKLOG = 96 * 1024      # 旧协议发送上限
+STREAM_FEATURES = ['latency_profile_v1', 'stream_info_v1']
 MP3_MAX_BACKLOG = 2 * 1024 * 1024
 KEY_ALPHABET = 'abcdefghjkmnpqrstuvwxyz23456789'
 
@@ -106,11 +113,23 @@ def load_config():
 
 
 def save_config(cfg):
+    temp_path = None
     try:
-        with open(CONFIG_PATH, 'w', encoding='utf-8') as f:
+        with tempfile.NamedTemporaryFile(mode='w', encoding='utf-8', dir=os.path.dirname(CONFIG_PATH),
+                                         prefix='config-', suffix='.tmp', delete=False) as f:
+            temp_path = f.name
             json.dump(cfg, f, ensure_ascii=False, indent=2)
+        os.replace(temp_path, CONFIG_PATH)
+        return True
     except Exception as e:
         log('无法保存配置 %s：%s' % (CONFIG_PATH, e))
+        return False
+    finally:
+        if temp_path and os.path.exists(temp_path):
+            try:
+                os.unlink(temp_path)
+            except OSError:
+                pass
 
 
 # ------------------------------------------------------------------ network
@@ -189,12 +208,24 @@ def set_socket_opts(writer, sndbuf=None):
 def short_ua(ua):
     ua = ua or ''
     if 'ShengQiao' in ua:
-        return 'iPhone（App）'
+        for key, name in (('Android', 'Android（App）'), ('iPhone', 'iPhone（App）'),
+                          ('iPad', 'iPad（App）')):
+            if key in ua:
+                return name
+        return '声桥 App'
     for key, name in (('iPhone', 'iPhone'), ('iPad', 'iPad'), ('Android', 'Android'),
                       ('Macintosh', 'Mac'), ('Windows', 'Windows'), ('Linux', 'Linux')):
         if key in ua:
             return name
     return '未知设备'
+
+
+def client_name(ua, reported_name=None):
+    if isinstance(reported_name, str):
+        name = ' '.join(reported_name.split())[:80].strip()
+        if name:
+            return name
+    return short_ua(ua)
 
 
 # ------------------------------------------------------------------ bonjour
@@ -275,53 +306,81 @@ def ws_frame(opcode, payload):
     return head + payload
 
 
+def ws_zero_mask(frame):
+    """把服务端风格（不掩码）的帧改成客户端风格（掩码位 + 全 0 掩码键，负载不用动）。
+    电脑端走 USB 通道时是 WebSocket 客户端，RFC 要求客户端的帧带掩码。"""
+    n = frame[1] & 0x7F
+    hl = 2 if n < 126 else (4 if n == 126 else 10)
+    return frame[:1] + bytes((frame[1] | 0x80,)) + frame[2:hl] + bytes(4) + frame[hl:]
+
+
 def ws_unmask(data, mask):
     n = len(data)
     m = (mask * (n // 4 + 1))[:n]
     return (int.from_bytes(data, 'little') ^ int.from_bytes(m, 'little')).to_bytes(n, 'little')
 
 
-async def ws_read_frame(reader):
-    """读一条完整消息（处理分片）。返回 (opcode, payload)。"""
-    opcode = None
-    parts = []
-    while True:
-        b0, b1 = await reader.readexactly(2)
-        fin = b0 & 0x80
-        op = b0 & 0x0F
-        n = b1 & 0x7F
-        if n == 126:
-            n = struct.unpack('!H', await reader.readexactly(2))[0]
-        elif n == 127:
-            n = struct.unpack('!Q', await reader.readexactly(8))[0]
-        if n > 1 << 18:
-            raise ValueError('frame too large')
-        mask = await reader.readexactly(4) if b1 & 0x80 else None
-        data = await reader.readexactly(n) if n else b''
-        if mask and data:
-            data = ws_unmask(data, mask)
-        if op >= 0x8:                    # 控制帧可以夹在分片中间
-            return op, data
-        if op != 0:
-            opcode = op
-        parts.append(data)
-        if fin:
-            return opcode, b''.join(parts)
+class WSMessageReader:
+    """跨控制帧保留分片状态，并限制整条消息的大小。"""
+    MAX_MESSAGE = 1 << 18
+
+    def __init__(self, reader):
+        self.reader = reader
+        self.opcode = None
+        self.parts = bytearray()
+
+    async def read(self):
+        reader = self.reader
+        while True:
+            b0, b1 = await reader.readexactly(2)
+            fin, op = bool(b0 & 0x80), b0 & 0x0F
+            n = b1 & 0x7F
+            if n == 126:
+                n = struct.unpack('!H', await reader.readexactly(2))[0]
+            elif n == 127:
+                n = struct.unpack('!Q', await reader.readexactly(8))[0]
+            if b0 & 0x70 or op not in (0, OP_TEXT, OP_BIN, OP_CLOSE, OP_PING, OP_PONG):
+                raise ValueError('invalid WebSocket frame')
+            if op >= 0x8:
+                if not fin or n > 125:
+                    raise ValueError('invalid control frame')
+            elif n + len(self.parts) > self.MAX_MESSAGE:
+                raise ValueError('message too large')
+            mask = await reader.readexactly(4) if b1 & 0x80 else None
+            data = await reader.readexactly(n) if n else b''
+            if mask and data:
+                data = ws_unmask(data, mask)
+            if op >= 0x8:
+                return op, data
+            if op == 0:
+                if self.opcode is None:
+                    raise ValueError('unexpected continuation')
+            else:
+                if self.opcode is not None:
+                    raise ValueError('unfinished fragmented message')
+                self.opcode = op
+            self.parts.extend(data)
+            if fin:
+                opcode, payload = self.opcode, bytes(self.parts)
+                self.opcode = None
+                self.parts.clear()
+                return opcode, payload
 
 
 # ------------------------------------------------------------------ clients
 
 class WSClient:
-    """一个手机连接（网页或 App）。网页默认只收听；App 用 config 消息开关收听和麦克风。"""
+    """一个手机连接（网页或 App）。App 用 config 消息设置收听、麦克风和传输码率。"""
     _next = 1
 
-    def __init__(self, app, writer, ip, ua):
+    def __init__(self, app, writer, ip, ua, masked=False, via='wifi'):
         self.id = WSClient._next
         WSClient._next += 1
         self.app = app
         self.writer = writer
         self.ip = ip
         self.ua = ua
+        self.device_name = ''
         self.since = time.time()
         self.sent = 0
         self.dropped = 0
@@ -330,11 +389,18 @@ class WSClient:
         self.hold_until = 0.0
         self.listen = True
         self.mic = False
+        self.bitrate = 0
         self.mic_rate = 48000
         self.mic_seq = -1
         self.mic_lost = 0
         self.mic_frames = 0
+        self.audio_pipeline = audio_pipeline.ClientAudioPipeline()
+        self.stream_sender = None
+        self.config_id = 0
+        self.latency_mode = audio_pipeline.STANDARD
         self.is_app = 'ShengQiao' in (ua or '')
+        self.masked = masked            # True = 电脑端是 WebSocket 客户端（USB 通道），发出的帧要带掩码
+        self.via = via                  # 'wifi' / 'usb'
 
     def _write(self, frame):
         tr = self.writer.transport
@@ -343,7 +409,7 @@ class WSClient:
         if tr.get_write_buffer_size() > WS_MAX_BACKLOG:
             self.dropped += 1
             return
-        tr.write(frame)
+        self.write_frame(frame)
         self.sent += 1
 
     def send_audio(self, frame):
@@ -353,7 +419,10 @@ class WSClient:
             return
         now = time.monotonic()           # 调试用：模拟 Wi-Fi 抖动 / 突发
         if now < self.hold_until:
-            self.held.append(frame)
+            if len(self.held) < 40:
+                self.held.append(frame)
+            else:
+                self.dropped += 1
             return
         if self.held:
             held, self.held = self.held, []
@@ -366,24 +435,42 @@ class WSClient:
             self.hold_until = now + 3 * jitter / 1000.0
         self._write(frame)
 
-    def send_json(self, obj):
+    def send_raw(self, frame):
+        """发控制帧（pong / close）。"""
+        if self.stream_sender is not None:
+            self.stream_sender.control(frame)
+            return
+        self.write_frame(frame)
+
+    def write_frame(self, frame):
         tr = self.writer.transport
         if not tr.is_closing():
-            tr.write(ws_frame(OP_TEXT, json.dumps(obj, ensure_ascii=False).encode('utf-8')))
+            tr.write(ws_zero_mask(frame) if self.masked else frame)
+
+    def send_json(self, obj):
+        self.send_raw(ws_frame(OP_TEXT, json.dumps(obj, ensure_ascii=False).encode('utf-8')))
 
     def info(self):
         st = self.stats
-        return {
-            'id': self.id, 'ip': self.ip, 'device': short_ua(self.ua), 'mode': 'live',
+        profile = self.audio_pipeline.actual_profile
+        bitrate = profile.bitrate if profile is not None else self.bitrate
+        info = {
+            'id': self.id, 'ip': self.ip, 'device': client_name(self.ua, self.device_name), 'mode': 'live',
+            'via': 'usb' if self.via == 'usb' else ('usbnet' if self.app.is_usb_net_ip(self.ip) else 'wifi'),
             'listen': self.listen, 'mic': self.mic and self.app.mic.owner is self,
+            'codec': 'opus' if bitrate else 'pcm', 'bitrate': bitrate or 1536,
             'since': self.since, 'dropped': self.dropped,
             'latency': st.get('lat'), 'buffer': st.get('buf'), 'target': st.get('tgt'),
             'underruns': st.get('und'), 'rtt': st.get('rtt'),
         }
+        if self.stream_sender is not None and profile is not None:
+            info.update(latencyMode=profile.mode, streamId=self.audio_pipeline.stream_id,
+                        **self.stream_sender.diagnostics())
+        return info
 
 
 class Mp3Client:
-    """网页版“锁屏也能听”：每个连接一个 MP3 编码器。"""
+    """兼容外部 MP3 播放器：每个连接一个独立编码器。"""
     _next = 1
 
     def __init__(self, writer, ip, ua):
@@ -443,21 +530,30 @@ class Hub:
         self.peak = 0.0
         self.chime = None
         self.chime_pos = 0
+        self.opus_encoders = {}
         self.zero = np.zeros((BLOCK, 2), np.float32)
 
     def has_listeners(self):
         return bool(self.mp3) or any(c.listen for c in self.ws)
 
-    def on_capture_block(self, blk):
-        self.last_real = time.monotonic()
+    def on_capture_discontinuity(self, dropped):
         self.fill_t = None
-        self.publish(blk)
+        for c in self.ws:
+            if c.stream_sender is not None and c.listen:
+                c.stream_sender.discontinuity()
+
+    def on_capture_block(self, blk, produced_at):
+        if self.fill_t is not None or (self.last_real and produced_at - self.last_real > 0.060):
+            self.on_capture_discontinuity(0)
+        self.last_real = produced_at
+        self.fill_t = None
+        self.publish(blk, produced_at)
 
     def play_chime(self):
         self.chime = make_chime()
         self.chime_pos = 0
 
-    def publish(self, blk):
+    def publish(self, blk, produced_at, legacy_only=False):
         if self.chime is not None:
             seg = self.chime[self.chime_pos:self.chime_pos + BLOCK]
             blk = blk.copy()
@@ -473,18 +569,40 @@ class Hub:
             return
         pcm = (x * 32767.0).astype('<i2').tobytes()
         flags = 0 if peak > 1e-4 else 1
-        frame = ws_frame(OP_BIN, struct.pack('<BBHI', 1, flags, 0, self.seq) + pcm)
+        pcm_frame = ws_frame(OP_BIN, struct.pack('<BBHI', 1, flags, 0, self.seq) + pcm)
+        frames = {0: pcm_frame}
         self.seq = (self.seq + 1) & 0xFFFFFFFF
         for c in tuple(self.ws):
-            if c.listen:
-                c.send_audio(frame)
+            if not c.listen:
+                continue
+            if c.stream_sender is not None:
+                if not legacy_only:
+                    c.stream_sender.offer(produced_at, pcm, flags)
+                continue
+            bitrate = c.bitrate
+            if bitrate not in frames:
+                try:
+                    encoder = self.opus_encoders.get(bitrate)
+                    if encoder is None:
+                        encoder = opus_codec.OpusEncoder(bitrate)
+                        self.opus_encoders[bitrate] = encoder
+                    encoded = encoder.encode(pcm)
+                    frames[bitrate] = ws_frame(OP_BIN, struct.pack('<BBHI', 3, flags, 0, (self.seq - 1) & 0xFFFFFFFF) + encoded)
+                except Exception as e:
+                    log('Opus 编码失败，已退回原始音质：%s' % e)
+                    self.opus_encoders.clear()
+                    for client in self.ws:
+                        if client.stream_sender is None:
+                            client.bitrate = 0
+                    frames[bitrate] = pcm_frame
+            c.send_audio(frames[bitrate])
         for c in tuple(self.mp3):
             c.feed(pcm)
 
     async def filler(self):
         """采集源在没声音时可能不出数据（或出数据不均匀），这里按真实时间补静音。"""
         while True:
-            await asyncio.sleep(0.02)
+            await asyncio.sleep(0.01)
             if not self.has_listeners():
                 self.fill_t = None
                 continue
@@ -492,12 +610,14 @@ class Hub:
             if now - self.last_real < 0.1:
                 continue
             if self.fill_t is None:
+                self.on_capture_discontinuity(0)
                 self.fill_t = max(self.last_real, now - 0.15)
             n = int((now - self.fill_t) / 0.01)
             if n <= 0:
                 continue
-            for _ in range(min(n, 50)):
-                self.publish(self.zero)
+            blocks = min(n, 50)
+            for i in range(blocks):
+                self.publish(self.zero, now, legacy_only=i < blocks - 2)
             self.fill_t += n * 0.01
             if now - self.fill_t > 0.5:
                 self.fill_t = now
@@ -509,16 +629,22 @@ STATIC = {
     '/': ('index.html', 'text/html; charset=utf-8'),
     '/index.html': ('index.html', 'text/html; charset=utf-8'),
     '/player-core.js': ('player-core.js', 'application/javascript; charset=utf-8'),
+    '/player.js': ('player.js', 'application/javascript; charset=utf-8'),
+    '/player.css': ('player.css', 'text/css; charset=utf-8'),
     '/icon-180.png': ('icon-180.png', 'image/png'),
     '/icon-512.png': ('icon-512.png', 'image/png'),
     '/favicon.ico': ('icon-180.png', 'image/png'),
-    '/keepawake.mp4': ('keepawake.mp4', 'video/mp4'),
 }
 LOCAL_ONLY_STATIC = {
     '/pc': ('pc.html', 'text/html; charset=utf-8'),
+    '/pc.css': ('pc.css', 'text/css; charset=utf-8'),
+    '/pc.js': ('pc.js', 'application/javascript; charset=utf-8'),
+    '/pc-icon.png': ('pc-icon.png', 'image/png'),
 }
+LOCAL_CONTROL_HOSTS = ('localhost', '127.0.0.1', '[::1]')
 REASONS = {200: 'OK', 204: 'No Content', 206: 'Partial Content', 400: 'Bad Request', 403: 'Forbidden',
-           404: 'Not Found', 405: 'Method Not Allowed', 416: 'Range Not Satisfiable', 503: 'Service Unavailable'}
+           404: 'Not Found', 405: 'Method Not Allowed', 415: 'Unsupported Media Type',
+           416: 'Range Not Satisfiable', 503: 'Service Unavailable'}
 
 
 def http_response(status, body=b'', ctype='text/plain; charset=utf-8', extra=None):
@@ -557,6 +683,7 @@ class App:
         if dn not in denoise.available_modes():
             dn = 'light'
         self.mic = micmod.MicSink(mic_output, cfg.get('micDevice') or 'auto', dn)
+        self.timed_out_mic = None
         self.loop = None
         self.port = None
         self.urls = []
@@ -568,6 +695,12 @@ class App:
         self.advertiser = Advertiser(cfg, self.hostname) if not args.no_bonjour else None
         self.ready = threading.Event()
         self.stopping = False
+        self.usb = usbmux.UsbManager(self, args.usbmux or None)
+        self.usb_net_ips = []
+        self.usb_net_urls = []
+        self.usb_net_present = False
+        self.usb_net_adapters = []
+        self.usb_net_networks = []
 
     # ---------------------------------------------------------- helpers
     def key_ok(self, given):
@@ -580,13 +713,37 @@ class App:
         q = '' if self.args.no_key else '?k=' + self.cfg['key']
         return 'http://%s:%d/%s' % (ip, self.port, q)
 
+    def is_usb_net_ip(self, ip):
+        """按网卡实际前缀识别安卓与 iPhone USB 共享连接。"""
+        try:
+            a = ipaddress.ip_address(ip)
+            return any(a in network for network in self.usb_net_networks)
+        except ValueError:
+            return False
+
     def refresh_urls(self):
         ips = candidate_ips()
-        self.urls = [self.phone_url(ip) for ip in ips]
+        self.usb_net_adapters = netinfo.usb_network_adapters()
+        self.usb_net_ips = list(dict.fromkeys(ip for ad in self.usb_net_adapters for ip in ad['ips']))
+        self.usb_net_networks = [ipaddress.ip_network(cidr) for ad in self.usb_net_adapters for cidr in ad['networks']]
+        self.usb_net_present = bool(self.usb_net_adapters)
+        ips = list(dict.fromkeys(ips + self.usb_net_ips))
+        self.usb_net_urls = [self.phone_url(ip) for ip in self.usb_net_ips]
+        self.urls = [self.phone_url(ip) for ip in ips if ip not in self.usb_net_ips]
         host = self.hostname
         self.local_url = self.phone_url(host.lower() + '.local') if host and host.isascii() and ' ' not in host else ''
         if self.advertiser is not None:
             self.advertiser.update(ips, self.port)
+
+    def pairing_status(self):
+        return {
+            'key': '' if self.args.no_key else self.cfg['key'],
+            'urls': self.urls, 'localUrl': self.local_url,
+            'usb': dict(self.usb.status(), net=self.usb_net_present, netUrls=self.usb_net_urls,
+                        netAdapters=[{'name': ad['name'], 'platform': ad['platform'],
+                                      'urls': [self.phone_url(ip) for ip in ad['ips']]}
+                                     for ad in self.usb_net_adapters]),
+        }
 
     def capture_conflict(self):
         """采集的输出设备和麦克风写入的设备是同一个 → 手机会听到自己的声音。"""
@@ -600,11 +757,11 @@ class App:
         peak, self.hub.peak = self.hub.peak, 0.0
         return {
             'app': APP_NAME, 'version': VERSION, 'hostname': self.hostname, 'id': self.cfg['id'],
-            'port': self.port, 'key': '' if self.args.no_key else self.cfg['key'],
-            'urls': self.urls, 'localUrl': self.local_url,
+            'port': self.port, **self.pairing_status(),
             'source': self.capture.source.label, 'sourceKind': self.capture.source.kind,
             'device': self.capture.device_name, 'devicePref': self.capture.device_pref or 'default',
             'state': self.capture.state, 'error': self.capture.error, 'active': self.capture.active,
+            'captureMailbox': self.capture_mailbox.stats(),
             'level': round(peak, 4), 'mp3': lameenc is not None, 'listeners': listeners,
             'mic': self.mic.status(), 'conflict': self.capture_conflict(),
             'log': list(LOG_LINES)[-60:],
@@ -612,11 +769,20 @@ class App:
 
     def mic_status_for(self, client):
         st = self.mic.status()
-        return {'type': 'status', 'mic': {
+        status = {'type': 'status', 'mic': {
             'state': st['state'], 'device': st['device'], 'error': st['error'],
             'mine': self.mic.owner is client, 'latencyMs': st['latencyMs'], 'underruns': st['underruns'],
             'busy': self.mic.owner is not None and self.mic.owner is not client,
-            'denoise': st['denoise'], 'denoiseModes': st['denoiseModes']}, 'listeners': len(self.hub.ws)}
+            'denoise': st['denoise'], 'denoiseModes': st['denoiseModes']},
+            'listeners': len(self.hub.ws), 'bitrate': client.bitrate,
+            'bitrates': list(opus_codec.BITRATES) if opus_codec.available() else []}
+        if client.stream_sender is not None:
+            if client.listen:
+                status.update(client.audio_pipeline.status())
+            else:
+                status.update(configId=client.config_id, bitrate=0, streamId=None,
+                              requestedLatencyMode=client.latency_mode, latencyMode='standard')
+        return status
 
     def set_denoise(self, mode, source):
         if mode not in denoise.available_modes() or mode == self.mic.denoise_mode:
@@ -645,16 +811,18 @@ class App:
     async def push_status(self):
         while True:
             await asyncio.sleep(1.0)
+            # Release idle output while allowing the same session to resume on fresh audio.
+            owner = self.mic.owner
+            if owner is not None and time.monotonic() - self.mic.last_feed > 10:
+                log('超过 10 秒没收到麦克风数据，关闭麦克风输出')
+                self.mic.stop(owner)
+                self.timed_out_mic = owner
             for c in tuple(self.hub.ws):
                 if c.is_app or c.mic:
                     try:
                         c.send_json(self.mic_status_for(c))
                     except Exception:
                         pass
-            # 开着麦的手机突然没了数据（比如手机锁屏后被系统挂起）
-            if self.mic.owner is not None and time.monotonic() - self.mic.last_feed > 10:
-                log('超过 10 秒没收到麦克风数据，关闭麦克风输出')
-                self.mic.stop()
 
     async def refresh_urls_task(self):
         while True:
@@ -688,7 +856,9 @@ class App:
             for ln in lines[1:]:
                 if ':' in ln:
                     k, v = ln.split(':', 1)
-                    headers[k.strip().lower()] = v.strip()
+                    k = k.strip().lower()
+                    # An ambiguous control header must fail validation.
+                    headers[k] = '' if k in headers and k in ('host', 'origin', 'content-type') else v.strip()
             path, _, qs = target.partition('?')
             path = urllib.parse.unquote(path)
             query = urllib.parse.parse_qs(qs)
@@ -727,7 +897,7 @@ class App:
                 data = f.read()
         except OSError:
             return http_response(404, 'not found')
-        rng = (headers or {}).get('range', '')          # iPhone Safari 播放 <video> 需要 Range 支持
+        rng = (headers or {}).get('range', '')          # 静态资源支持范围请求
         if rng.startswith('bytes=') and ',' not in rng:
             a, _, b = rng[6:].strip().partition('-')
             size = len(data)
@@ -759,12 +929,73 @@ class App:
         if path in LOCAL_ONLY_STATIC or path.startswith('/api/'):
             if not local:
                 return http_response(403, '只能在运行声桥的这台电脑上打开')
+            headers = headers or {}
+            host = headers.get('host', '').lower()
+            allowed_hosts = {f'{name}:{self.port}' for name in LOCAL_CONTROL_HOSTS}
+            if self.port == 80:
+                allowed_hosts.update(LOCAL_CONTROL_HOSTS)
+            # A DNS name that resolves to loopback must not gain access to the console.
+            if host not in allowed_hosts:
+                return json_response({'error': '请通过本机声桥地址访问控制页。'}, 403)
+            if method == 'POST' and path.startswith('/api/'):
+                origin = headers.get('origin')
+                expected_origin = 'http://' + host.removesuffix(':80')
+                if origin is not None and origin != expected_origin:
+                    return json_response({'error': '只能从本机声桥页面执行此操作。'}, 403)
+                # JSON-only mutations cannot be submitted by cross-origin HTML forms.
+                content_type = headers.get('content-type', '').split(';', 1)[0].strip().lower()
+                if content_type != 'application/json':
+                    return json_response({'error': '请求须使用 application/json。'}, 415)
             if path in LOCAL_ONLY_STATIC:
                 return self.static(*LOCAL_ONLY_STATIC[path])
             return await self.api(method, path, query, body)
         return http_response(404, 'not found')
 
     async def api(self, method, path, query, body):
+        if path in ('/api/refresh', '/api/access-key'):
+            if method != 'POST':
+                return json_response({'error': '请使用 POST 请求。'}, 405)
+            if path == '/api/refresh':
+                self.refresh_urls()
+                return json_response(self.pairing_status())
+            if self.args.no_key:
+                return json_response({'error': '当前以免访问码模式启动，请重启并启用访问码。'}, 409)
+            try:
+                data = json.loads(body.decode('utf-8'))
+                if not isinstance(data, dict):
+                    raise ValueError()
+                if data.get('action') == 'generate':
+                    key = self.cfg['key']
+                    while key == self.cfg['key']:
+                        key = ''.join(secrets.choice(KEY_ALPHABET) for _ in range(6))
+                elif data.get('action') == 'set' and isinstance(data.get('key'), str):
+                    key = data['key'].strip().lower()
+                    if not 4 <= len(key) <= 16 or not key.isascii() or not key.isalnum():
+                        raise ValueError()
+                else:
+                    raise ValueError()
+            except (ValueError, UnicodeDecodeError):
+                return json_response({'error': '访问码须为 4–16 位英文字母或数字。'}, 400)
+            changed = key != self.cfg['key']
+            if changed:
+                cfg = dict(self.cfg, key=key)
+                if not save_config(cfg):
+                    return json_response({'error': '无法保存访问码，请检查配置文件是否可写。'}, 500)
+                self.cfg['key'] = key
+                # Rebuild existing links immediately, even if adapter enumeration is unavailable.
+                def rekey(url):
+                    return url.split('?', 1)[0] + '?k=' + key if url else ''
+                self.urls = [rekey(url) for url in self.urls]
+                self.usb_net_urls = [rekey(url) for url in self.usb_net_urls]
+                self.local_url = rekey(self.local_url)
+                # Existing network sessions were authenticated with the old key.
+                for client in tuple(self.hub.ws):
+                    if client.via != 'usb':
+                        client.writer.close()
+                for client in tuple(self.hub.mp3):
+                    client.writer.close()
+                log('访问码已更新，网络连接需使用新码重新连接')
+            return json_response(dict(self.pairing_status(), changed=changed))
         if path == '/api/status':
             self.last_console = time.monotonic()
             return json_response(self.status())
@@ -839,20 +1070,36 @@ class App:
             writer.write(ws_frame(OP_CLOSE, struct.pack('!H', 4001) + b'bad key'))
             await writer.drain()
             return
-        client = WSClient(self, writer, ip, headers.get('user-agent', ''))
+        await self.run_session(reader, writer, ip, headers.get('user-agent', ''))
+
+    async def run_usb_session(self, reader, writer, serial=''):
+        """USB 通道（见 usbmux.py）：握手已经做完，电脑端是 WebSocket 客户端。"""
+        set_socket_opts(writer, sndbuf=64 * 1024)
+        await self.run_session(reader, writer, 'USB', 'ShengQiao/USB (iPhone)', masked=True, via='usb')
+
+    async def run_session(self, reader, writer, ip, ua, masked=False, via='wifi'):
+        """一个手机连接的完整会话：发 hello，然后收发消息，直到断开。Wi-Fi 和 USB 共用。"""
+        client = WSClient(self, writer, ip, ua, masked=masked, via=via)
         client.send_json({'type': 'hello', 'rate': RATE, 'channels': 2, 'name': self.hostname,
                           'id': self.cfg['id'], 'version': VERSION, 'mp3': lameenc is not None,
-                          'features': ['mic']})
+                          'features': ['mic'] + (['opus'] if opus_codec.available() else []) + STREAM_FEATURES,
+                          'latencyModes': list(audio_pipeline.MODES), 'latencyProfileVersion': 1,
+                          'audioFrameSamples': BLOCK,
+                          'bitrates': list(opus_codec.BITRATES) if opus_codec.available() else []})
         self.hub.ws.add(client)
-        log('%s %s 连上了' % (short_ua(client.ua), ip))
+        log('%s %s 连上了' % (client_name(client.ua, client.device_name), 'USB' if via == 'usb' else ip))
+        messages = WSMessageReader(reader)
         try:
             while True:
-                opcode, data = await asyncio.wait_for(ws_read_frame(reader), 20)
+                opcode, data = await asyncio.wait_for(messages.read(), 20)
                 if opcode == OP_CLOSE:
-                    writer.write(ws_frame(OP_CLOSE, data[:2]))
+                    # The session is ending. Discard pending writes before replying to close.
+                    if client.stream_sender is not None:
+                        client.stream_sender.task.cancel()
+                    client.write_frame(ws_frame(OP_CLOSE, data[:2]))
                     break
                 if opcode == OP_PING:
-                    writer.write(ws_frame(OP_PONG, data))
+                    client.send_raw(ws_frame(OP_PONG, data))
                 elif opcode == OP_TEXT:
                     self.on_ws_text(client, data)
                 elif opcode == OP_BIN:
@@ -861,52 +1108,152 @@ class App:
             pass
         finally:
             self.hub.ws.discard(client)
+            if client.stream_sender is not None:
+                client.stream_sender.task.cancel()
+                try:
+                    await client.stream_sender.task
+                except asyncio.CancelledError:
+                    pass
+            client.audio_pipeline.close()
+            if self.timed_out_mic is client:
+                self.timed_out_mic = None
             if self.mic.owner is client:
                 self.mic.stop(client)
-                log('%s 的麦克风已关闭' % short_ua(client.ua))
-            log('%s %s 断开' % (short_ua(client.ua), ip))
+                log('%s 的麦克风已关闭' % client_name(client.ua, client.device_name))
+            log('%s %s 断开' % (client_name(client.ua, client.device_name), 'USB' if via == 'usb' else ip))
 
     def on_ws_text(self, client, data):
         try:
             msg = json.loads(data.decode('utf-8'))
         except Exception:
             return
+        if not isinstance(msg, dict):
+            return
         t = msg.get('type')
         if t == 'ping':
             client.send_json({'type': 'pong', 't': msg.get('t')})
         elif t == 'stats':
             client.stats = {k: msg.get(k) for k in ('lat', 'buf', 'tgt', 'und', 'rtt')}
+            if client.stream_sender is not None:
+                client.stream_sender.observe_rtt(msg.get('rtt'))
+        elif t == 'audio_ack' and client.stream_sender is not None:
+            client.stream_sender.ack(msg.get('streamId'), msg.get('receivedSequence'))
         elif t == 'config':
+            if client.stream_sender is not None or 'clientFeatures' in msg or 'configId' in msg:
+                self.configure_stream(client, msg)
+                return
             client.is_app = True
+            if isinstance(msg.get('deviceName'), str):
+                client.device_name = client_name(client.ua, msg['deviceName'])
+            if 'bitrate' in msg:
+                try:
+                    bitrate = int(msg['bitrate'])
+                except (TypeError, ValueError, OverflowError):
+                    bitrate = -1
+                if bitrate == 0 or bitrate in opus_codec.BITRATES:
+                    if bitrate and not opus_codec.available():
+                        log('%s 选择了 Opus 压缩，但这台电脑没有可用的 Opus 编码器，继续使用原始音质'
+                            % client_name(client.ua, client.device_name))
+                    elif bitrate != client.bitrate:
+                        client.bitrate = bitrate
+                        log('%s 的传输码率改为 %s' % (client_name(client.ua, client.device_name),
+                                                  '原始音质' if bitrate == 0 else '%d kbps' % bitrate))
             if 'listen' in msg:
                 client.listen = bool(msg['listen'])
             if isinstance(msg.get('denoise'), str):
-                self.set_denoise(msg['denoise'], short_ua(client.ua))
+                self.set_denoise(msg['denoise'], client_name(client.ua, client.device_name))
             if 'micRate' in msg:
                 try:
                     client.mic_rate = max(8000, min(192000, int(msg['micRate'])))
-                except (TypeError, ValueError):
+                except (TypeError, ValueError, OverflowError):
                     pass
             if 'mic' in msg:
-                on = bool(msg['mic'])
-                if on and (not client.mic or self.mic.owner is not client):
-                    if self.mic.owner is not None and self.mic.owner is not client:
-                        log('麦克风从另一台手机切换到 %s' % short_ua(client.ua))
-                    client.mic_seq = -1
-                    self.mic.start(client, client.mic_rate)
-                    log('%s 开始当麦克风（%d Hz）' % (short_ua(client.ua), client.mic_rate))
-                elif not on and client.mic:
-                    self.mic.stop(client)
-                    log('%s 关闭了麦克风' % short_ua(client.ua))
-                elif on and client.mic_rate != int(self.mic.jitter.src_rate):
-                    self.mic.jitter.set_src_rate(client.mic_rate)
-                client.mic = on
+                self.configure_mic(client, bool(msg['mic']))
             client.send_json(self.mic_status_for(client))
+
+    def configure_mic(self, client, enabled):
+        if enabled:
+            if self.mic.owner is not client:
+                self.start_mic(client)
+            elif client.mic_rate != int(self.mic.jitter.src_rate):
+                self.mic.jitter.set_src_rate(client.mic_rate)
+        elif client.mic:
+            if self.timed_out_mic is client:
+                self.timed_out_mic = None
+            self.mic.stop(client)
+            log('%s 关闭了麦克风' % client_name(client.ua, client.device_name))
+        client.mic = enabled
+
+    def start_mic(self, client):
+        if self.mic.owner is not None:
+            log('麦克风从另一台手机切换到 %s' % client_name(client.ua, client.device_name))
+        self.timed_out_mic = None
+        client.mic_seq = -1
+        self.mic.start(client, client.mic_rate)
+        log('%s 开始当麦克风（%d Hz）' % (client_name(client.ua, client.device_name), client.mic_rate))
+
+    def configure_stream(self, client, msg):
+        config_id = msg.get('configId')
+        if type(config_id) is not int or not 1 <= config_id <= 0x7FFFFFFF:
+            return
+        features = msg.get('clientFeatures')
+        if 'clientFeatures' in msg or client.stream_sender is None:
+            if (not isinstance(features, list) or len(features) != len(STREAM_FEATURES)
+                    or any(feature not in features for feature in STREAM_FEATURES)):
+                return
+        if client.stream_sender is None and config_id != 1:
+            return
+        if config_id <= client.config_id:
+            if config_id == client.config_id:
+                client.send_json(self.mic_status_for(client))
+            return
+        if client.stream_sender is None:
+            client.stream_sender = StreamSender(client, lambda packet: ws_frame(OP_BIN, packet), log)
+            client.held.clear()
+        client.config_id = config_id
+        client.is_app = True
+        name = msg.get('deviceName')
+        if isinstance(name, str) and len(name) <= 128:
+            client.device_name = client_name(client.ua, name)
+        mode = msg.get('latencyMode')
+        if mode in audio_pipeline.MODES:
+            client.latency_mode = mode
+        bitrate = msg.get('bitrate')
+        if type(bitrate) is int and bitrate in (0,) + opus_codec.BITRATES:
+            client.bitrate = bitrate
+        listen = msg.get('listen')
+        if type(listen) is bool:
+            client.listen = listen
+        denoise_mode = msg.get('denoise')
+        if isinstance(denoise_mode, str) and len(denoise_mode) <= 32:
+            self.set_denoise(denoise_mode, client_name(client.ua, client.device_name))
+        rate = msg.get('micRate')
+        if type(rate) is int and 8000 <= rate <= 192000 and rate != client.mic_rate:
+            client.mic_rate = rate
+            if self.mic.owner is client:
+                self.mic.jitter.set_src_rate(rate)
+        mic = msg.get('mic')
+        if type(mic) is bool and (mic != client.mic or (mic and self.mic.owner is None)):
+            self.configure_mic(client, mic)
+        if client.listen:
+            info = client.audio_pipeline.configure(
+                audio_pipeline.StreamProfile(client.latency_mode, client.bitrate), config_id)
+            if info is not None:
+                client.stream_sender.announce(info)
+                return
+        else:
+            client.stream_sender.clear_audio()
+            client.audio_pipeline.close()
+        client.send_json(self.mic_status_for(client))
 
     def on_ws_binary(self, client, data):
         # 手机 → 电脑：[2][flags][0][0][seq u32 LE] + 16 位单声道 PCM
         if len(data) < 10 or data[0] != 2 or not client.mic:
             return
+        if self.mic.owner is not client:
+            if self.mic.owner is not None or self.timed_out_mic is not client:
+                return
+            self.start_mic(client)
         seq = struct.unpack_from('<I', data, 4)[0]
         if client.mic_seq >= 0 and seq != client.mic_seq:
             client.mic_lost += (seq - client.mic_seq) & 0xFFFFFFFF
@@ -934,7 +1281,7 @@ class App:
         set_socket_opts(writer)
         client = Mp3Client(writer, ip, headers.get('user-agent', ''))
         self.hub.mp3.add(client)
-        log('%s %s 开始收听（网页锁屏模式）' % (short_ua(client.ua), ip))
+        log('%s %s 开始收听（网页收听）' % (short_ua(client.ua), ip))
         try:
             while True:
                 if not await reader.read(1024):
@@ -943,17 +1290,19 @@ class App:
             pass
         finally:
             self.hub.mp3.discard(client)
-            log('%s %s 断开（网页锁屏模式）' % (short_ua(client.ua), ip))
+            log('%s %s 断开（网页收听）' % (short_ua(client.ua), ip))
 
     # ---------------------------------------------------------- start
     async def start(self):
         self.loop = asyncio.get_running_loop()
         loop = self.loop
         fallback = capture.PyAudioSource if self.source.kind == 'soundcard' else None
+        self.capture_mailbox = capture.CaptureMailbox(
+            loop, self.hub.on_capture_block, self.hub.on_capture_discontinuity)
         self.capture = capture.CaptureRunner(
-            self.source,
-            lambda blk: loop.call_soon_threadsafe(self.hub.on_capture_block, blk),
-            device_pref=self.cfg.get('device') or 'default', fallback=fallback)
+            self.source, self.capture_mailbox.offer,
+            device_pref=self.cfg.get('device') or 'default', fallback=fallback,
+            on_discontinuity=self.capture_mailbox.mark_discontinuity)
         server = None
         last_err = None
         base = self.args.port or self.cfg['port']
@@ -978,6 +1327,8 @@ class App:
                  asyncio.ensure_future(self.manage_capture()),
                  asyncio.ensure_future(self.push_status()),
                  asyncio.ensure_future(self.refresh_urls_task())]
+        if not self.args.no_usb:
+            tasks.append(asyncio.ensure_future(self.usb.run()))
         print_banner(self)
         self.ready.set()
         if not self.args.no_browser:
@@ -1014,16 +1365,13 @@ def setup_console():
 
 
 def open_browser(url):
-    def run():
-        try:
-            if IS_WINDOWS:
-                import ctypes
-                ctypes.windll.ole32.CoInitializeEx(None, 0x2)
-            import webbrowser
-            webbrowser.open(url)
-        except Exception:
-            pass
-    threading.Thread(target=run, daemon=True).start()
+    """打开控制页：Windows 上是独立的客户端窗口（window.py），其他系统用默认浏览器。"""
+    try:
+        import window
+        window.open_console(url)
+    except Exception:
+        import webbrowser
+        webbrowser.open(url)
 
 
 def console_qr_ok():
@@ -1075,8 +1423,7 @@ def already_running():
     try:
         with open(RUNNING_PATH, 'r', encoding='utf-8') as f:
             port = json.load(f)['port']
-        import webbrowser
-        webbrowser.open('http://127.0.0.1:%d/pc' % port)
+        open_browser('http://127.0.0.1:%d/pc' % port)
     except Exception:
         pass
     return True
@@ -1096,8 +1443,11 @@ def parse_args(argv=None):
     ap.add_argument('--background', action='store_true', help='开机自启时用：不打开控制页')
     ap.add_argument('--no-tray', action='store_true', help='不显示托盘图标（在命令行里运行）')
     ap.add_argument('--no-qr', action='store_true', help='不在命令行打印二维码')
+    ap.add_argument('--no-usb', action='store_true', help='不检测 iPhone 的 USB 直连（usbmux）')
+    ap.add_argument('--usbmux', metavar='ADDR', default=None, help=argparse.SUPPRESS)       # 测试用：usbmuxd 地址 host:port
     ap.add_argument('--no-bonjour', action='store_true', help='不在局域网广播（App 里就需要扫码/手动输入）')
     ap.add_argument('--no-keepalive', action='store_true', help='不播放静音保活流')
+    ap.add_argument('--window', metavar='URL', default=None, help=argparse.SUPPRESS)   # 内部用：只显示客户端窗口
     ap.add_argument('--debug', action='store_true', help=argparse.SUPPRESS)
     ap.add_argument('--sim-jitter', type=float, default=0, help=argparse.SUPPRESS)
     ap.add_argument('--sim-drift', type=float, default=0, help=argparse.SUPPRESS)
@@ -1126,6 +1476,9 @@ def main(argv=None):
     frozen = getattr(sys, 'frozen', False)
     if sys.stdout is None or frozen:
         capture.set_log_file(os.path.join(DATA_DIR, 'log.txt'))
+    if args.window:                                  # 客户端窗口子进程：不碰声卡，只显示界面
+        import window
+        return window.run_window(args.window, DATA_DIR)
     setup_console()
     if args.list_devices:
         source, _ = build(args)

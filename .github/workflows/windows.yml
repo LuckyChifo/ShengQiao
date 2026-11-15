@@ -11,12 +11,26 @@ jobs:
         with:
           python-version: '3.12'
       - run: pip install -r pc/requirements.txt pyinstaller
+      - name: Web player and console script syntax
+        run: |
+          node --check pc/app/web/player-core.js
+          node --check pc/app/web/player.js
+          node --check pc/app/web/pc.js
       - name: Jitter buffer simulations
         run: python pc/tests/test_mic_core.py
+      - name: Connection, low-latency and codec regression
+        shell: pwsh
+        run: |
+          $tests = @('test_low_latency.py', 'test_connection_settings.py', 'test_opus.py', 'test_ws_reader.py', 'test_device_names.py', 'test_wasapi_output.py')
+          foreach ($test in $tests) {
+            python "pc/tests/$test"
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          }
+      - name: USB (usbmux) tunnel against a fake usbmuxd + fake phone
+        run: python pc/tests/test_usb.py
       - name: Noise suppression quality (RNNoise DLL + spectral subtraction)
         run: python pc/tests/test_denoise.py
       - name: Install VB-CABLE and start Windows Audio
-        continue-on-error: true
         shell: pwsh
         run: |
           Invoke-WebRequest https://download.vb-audio.com/Download_CABLE/VBCABLE_Driver_Pack45.zip -OutFile vb.zip
@@ -31,7 +45,6 @@ jobs:
           Start-Service Audiosrv
           Start-Sleep -Seconds 5
       - name: Real audio self-test (WASAPI loopback + VB-CABLE mic path)
-        continue-on-error: true
         run: python pc/app/selftest.py
       - name: Protocol tests against the real server
         shell: pwsh
@@ -40,10 +53,14 @@ jobs:
           Start-Sleep -Seconds 6
           $key = (Get-Content pc/config.json | ConvertFrom-Json).key
           $ip = (Get-NetIPAddress -AddressFamily IPv4 | Where-Object { $_.IPAddress -notlike '127.*' } | Select-Object -First 1).IPAddress
-          python pc/tests/test_protocol.py $ip 23333 $key
-          $code = $LASTEXITCODE
-          Stop-Process -Id $p.Id
-          exit $code
+          try {
+            python pc/tests/test_protocol.py $ip 23333 $key
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+            python pc/tests/test_denoise_e2e.py $ip 23333 $key
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          } finally {
+            Stop-Process -Id $p.Id -ErrorAction SilentlyContinue
+          }
       - name: Build exe
         run: pyinstaller pc/shengqiao.spec --noconfirm --distpath dist --workpath build
       - name: Smoke-test the exe
@@ -51,8 +68,13 @@ jobs:
         run: |
           $p = Start-Process dist/ShengQiao/ShengQiao.exe -ArgumentList '--no-tray','--no-browser','--source','tone','--port','23400' -PassThru
           Start-Sleep -Seconds 8
-          Invoke-WebRequest http://127.0.0.1:23400/pc -UseBasicParsing | Select-Object -ExpandProperty StatusCode
-          Stop-Process -Id $p.Id
+          try {
+            Invoke-WebRequest http://127.0.0.1:23400/pc -UseBasicParsing | Select-Object -ExpandProperty StatusCode
+            Invoke-WebRequest http://127.0.0.1:23400/player.js -UseBasicParsing | Select-Object -ExpandProperty StatusCode
+            Invoke-WebRequest http://127.0.0.1:23400/player.css -UseBasicParsing | Select-Object -ExpandProperty StatusCode
+          } finally {
+            Stop-Process -Id $p.Id -ErrorAction SilentlyContinue
+          }
       - uses: actions/upload-artifact@v4
         with:
           name: ShengQiao-Windows-exe

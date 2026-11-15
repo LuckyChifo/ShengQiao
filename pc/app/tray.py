@@ -2,7 +2,6 @@
 import os
 import sys
 import threading
-import webbrowser
 
 from capture import log
 
@@ -49,10 +48,11 @@ def load_icon_image():
     from PIL import Image
     here = os.path.dirname(os.path.abspath(__file__))
     base = getattr(sys, '_MEIPASS', here)
-    for p in (os.path.join(base, 'web', 'icon-180.png'), os.path.join(here, 'web', 'icon-180.png')):
+    for p in (os.path.join(base, 'web', 'pc-icon.png'), os.path.join(here, 'web', 'pc-icon.png')):
         if os.path.exists(p):
-            return Image.open(p).convert('RGBA').resize((64, 64))
-    return Image.new('RGBA', (64, 64), (255, 181, 71, 255))
+            with Image.open(p) as icon:
+                return icon.convert('RGBA').resize((64, 64), Image.Resampling.LANCZOS)
+    return Image.new('RGBA', (64, 64), (101, 214, 173, 255))
 
 
 def run(app):
@@ -65,7 +65,8 @@ def run(app):
         return
 
     def open_console(icon=None, item=None):
-        webbrowser.open(app.console_url())
+        import window
+        window.open_console(app.console_url())
 
     def status_text(item):
         n = sum(1 for c in app.hub.ws if c.listen) + len(app.hub.mp3)
@@ -80,10 +81,12 @@ def run(app):
 
     def quit_app(icon, item):
         app.stopping = True
+        import window
+        window.close_console()
         icon.stop()
 
     menu = pystray.Menu(
-        pystray.MenuItem('打开声桥控制页', open_console, default=True),
+        pystray.MenuItem('打开声桥', open_console, default=True),
         pystray.MenuItem(status_text, None, enabled=False),
         pystray.Menu.SEPARATOR,
         pystray.MenuItem('开机时自动启动', toggle_autostart, checked=lambda item: autostart_enabled()),

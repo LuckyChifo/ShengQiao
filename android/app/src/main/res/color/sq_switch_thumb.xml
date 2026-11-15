@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:state_enabled="false" android:color="@color/sq_text_secondary" android:alpha="0.55" />
+    <item android:state_checked="true" android:color="@color/sq_on_primary" />
+    <item android:color="@color/sq_surface" />
+</selector>

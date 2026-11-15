@@ -1,0 +1,22 @@
+plugins {
+    id 'com.android.library'
+}
+
+android {
+    namespace 'com.shengqiao.app.glass'
+    compileSdk 35
+
+    defaultConfig {
+        minSdk 26
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
+
+dependencies {
+    api 'androidx.dynamicanimation:dynamicanimation:1.1.0'
+    compileOnly files('../app/libs/hnvisualeffect-11.0.0.134.aar')
+}

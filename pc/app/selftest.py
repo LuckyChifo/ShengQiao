@@ -164,7 +164,9 @@ def main():
         tone = (0.08 * np.sin(2 * np.pi * 440 * t)).astype(np.float32)
         tone[:480] *= np.linspace(0, 1, 480)
         tone[-480:] *= np.linspace(1, 0, 480)
-        spk.play(np.stack([tone, tone], axis=1), samplerate=48000)
+        with spk.player(samplerate=48000, channels=2) as player:
+            capture.play_wasapi_stereo(player, np.stack([tone, tone], axis=1))
+            time.sleep(player.currentpadding / 48000)
         time.sleep(0.4)
         stop.set()
         th.join(3)

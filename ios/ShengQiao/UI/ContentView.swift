@@ -85,7 +85,9 @@ struct ContentView: View {
         switch model.link {
         case .idle: return "连接电脑"
         case .connecting: return "正在连接…"
-        case .connected: return model.pcName.isEmpty ? "已连接" : model.pcName
+        case .connected:
+            let name = model.pcName.isEmpty ? "已连接" : model.pcName
+            return model.viaUSB ? name + " · USB" : name
         case .failed: return "连不上"
         case .needKey: return "访问码不对"
         }

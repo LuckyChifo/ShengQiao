@@ -1,7 +1,8 @@
 # 声桥 ShengQiao
 
-Windows 电脑和 iPhone 之间的双向局域网音频：
+Windows 电脑和手机之间的双向局域网音频：
 
+- **两种连接方式**：Wi-Fi（同一局域网），或 **USB 数据线**（iPhone 直连、安卓/iPhone 网络共享）。电脑「设备」页提供 USB 连接说明和刷新检测。
 - **听电脑**：电脑正在播放的声音（WASAPI 环回采集）实时传到 iPhone，延迟约 0.1 秒；App 锁屏也能继续播放。
 - **当麦克风**：iPhone 麦克风传到电脑，写进 VB-CABLE 的 CABLE Input，任何软件选 CABLE Output 即可当麦克风用
   （思路参考 [MicYou](https://github.com/LanRhyme/MicYou)，代码独立实现）。
@@ -10,16 +11,34 @@ Windows 电脑和 iPhone 之间的双向局域网音频：
 |---|---|
 | `pc/` | 电脑端（Python）：采集、推流、麦克风接收、Bonjour 广播、托盘图标、控制页、网页版播放器。说明见 `pc/README-Windows.md` |
 | `ios/` | iPhone App（SwiftUI + C 音频核心）。安装说明见 `ios/README.md` |
+| `android/` | Android App（原生 Java）：低延迟双向音频、自动发现、息屏前台服务。说明见 `android/README.md` |
 | `tools/` | 生成图标、生成 Xcode 工程 |
 | `.github/workflows/` | 云端编译：Windows exe（含装 VB-CABLE 后的真机音频自检）、iOS 不签名编译 |
 
 ## 协议（WebSocket，端口 23333）
 
 - 连接：`ws://电脑IP:23333/ws?k=访问码`，或任意路径 + 请求头 `X-SQ-Key: 访问码`（App 用 Bonjour 端点连接时）。访问码错误 → 关闭码 4001。
-- 电脑 → 手机：二进制帧 `[1][flags][0][0][seq u32 LE]` + 10 ms 的 48 kHz 双声道 16 位 PCM（flags bit0 = 静音）。
+- 电脑 → 手机：二进制帧 `[codec][flags][0][0][seq u32 LE]` + 10 ms 音频。codec 1 = 48 kHz 双声道 16 位 PCM；codec 3 = Opus（64/128/256/320 kbps）。
 - 手机 → 电脑：二进制帧 `[2][flags][0][0][seq u32 LE]` + 单声道 16 位 PCM（采样率在 config 里给出）。
-- 文本消息：`hello`（电脑名、id、采样率）、`config`（`listen`、`mic`、`micRate`、`denoise`）、`status`（麦克风输出状态，每秒一次）、`ping`/`pong`、`stats`。
+- 文本消息：`hello`（电脑名、id、采样率）、`config`（`listen`、`mic`、`micRate`、`denoise`、`deviceName`、`bitrate`）、`status`（麦克风输出状态，每秒一次）、`ping`/`pong`、`stats`。
 - Bonjour 服务类型 `_shengqiao._tcp`，TXT：`id`（电脑固定 id）、`name`（电脑名）。
+
+## USB 连接
+
+**安卓**：插上数据线，在手机设置里打开「USB 网络共享」，无需 USB 调试或 iTunes。在电脑「设备」页点击「刷新检测 → 查看 USB 共享地址」，再在安卓 App 中手动填写对应 IP、端口和访问码，或选择自动发现的电脑。电脑端识别常见 RNDIS / USB NCM 网卡，并根据实际网段标记「USB 共享」。
+
+首页「连接手机」支持刷新连接信息、手动设置访问码（4–16 位英文字母或数字）以及随机生成新码。新码会持久保存，二维码和链接同步更新；网络连接的设备需用新码重新连接。
+
+iPhone 有两种做法，电脑端自动识别，控制页的“USB 连接”卡片会说明当前是哪种：
+
+1. **USB 直连（usbmux）**：不用 Wi-Fi，也不用开个人热点。电脑装有 iTunes 或“Apple 设备”App（带 Apple Mobile Device Service，监听 127.0.0.1:27015）即可。
+   方向和 Wi-Fi 相反：手机上的 App 在本机回环地址 `23334` 端口监听（WebSocket 服务端，只绑回环接口，所以不需要访问码），
+   电脑端 `pc/app/usbmux.py` 经 usbmuxd 的 `Connect` 连过去，当 WebSocket 客户端（帧带掩码位，掩码键全 0）。握手后协议和 Wi-Fi 完全一样，`server.py` 的会话循环共用。
+   拔线、手机上没开声桥时，电脑端每 1.5 秒重试，不用手动操作。手机同时连着 Wi-Fi 时 USB 优先，USB 断了自动回到 Wi-Fi。
+2. **USB 共享网络**：iPhone 开“个人热点”再插线，电脑多出一张 “Apple Mobile Device Ethernet” 网卡（`pc/app/netinfo.py` 认它），
+   手机在 172.20.10.1，电脑在 172.20.10.x，现有的 Wi-Fi 协议原样跑在这条线上。控制页给出这张网卡上的地址和二维码，手机列表里标成“USB 共享”。
+
+测试：`python3 pc/tests/test_usb.py`（假 usbmuxd + 假手机，不需要真设备）。
 
 ## 降噪与回声消除
 

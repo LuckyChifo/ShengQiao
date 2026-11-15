@@ -40,9 +40,10 @@ exit /b 0
 
 :selftest
 "%PYEXE%" "%~dp0app\selftest.py"
+set "SELFTEST_EXIT=%ERRORLEVEL%"
 echo.
 pause
-exit /b 0
+exit /b %SELFTEST_EXIT%
 
 :debugrun
 shift
@@ -100,15 +101,22 @@ set "VPY=%~dp0.venv\Scripts\python.exe"
 if not exist "%VPY%" %SYSPY% -m venv "%~dp0.venv"
 if not exist "%VPY%" goto nopython
 if exist "%~dp0.venv\deps-ok.txt" goto runvenv
-"%VPY%" -m pip install --disable-pip-version-check -r "%~dp0app\requirements.txt" -i https://pypi.tuna.tsinghua.edu.cn/simple
-if errorlevel 1 "%VPY%" -m pip install --disable-pip-version-check -r "%~dp0app\requirements.txt"
+"%VPY%" -m pip install --disable-pip-version-check -r "%~dp0requirements.txt" -i https://pypi.tuna.tsinghua.edu.cn/simple
+if errorlevel 1 "%VPY%" -m pip install --disable-pip-version-check -r "%~dp0requirements.txt"
 if errorlevel 1 goto failed
 echo ok> "%~dp0.venv\deps-ok.txt"
 :runvenv
 set "VPYW=%~dp0.venv\Scripts\pythonw.exe"
 if /i "%~1"=="debug" goto venvdebug
+if /i "%~1"=="selftest" goto venvselftest
 start "" "%VPYW%" "%~dp0app\server.py" %*
 exit /b 0
+:venvselftest
+"%VPY%" "%~dp0app\selftest.py"
+set "SELFTEST_EXIT=%ERRORLEVEL%"
+echo.
+pause
+exit /b %SELFTEST_EXIT%
 :venvdebug
 "%VPY%" "%~dp0app\server.py" --no-tray
 if errorlevel 1 goto failed

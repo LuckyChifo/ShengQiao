@@ -94,6 +94,7 @@ final class AudioController {
         teardown()
         usedInput = false
         guard needsEngine else {
+            lastError = nil
             try? AVAudioSession.sharedInstance().setActive(false, options: [.notifyOthersOnDeactivation])
             onChange?()
             return

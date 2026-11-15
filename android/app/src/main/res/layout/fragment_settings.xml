@@ -1,0 +1,386 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:clipToPadding="false"
+    android:fillViewport="true">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:paddingStart="20dp"
+        android:paddingTop="20dp"
+        android:paddingEnd="20dp"
+        android:paddingBottom="128dp">
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:id="@+id/page_title"
+            android:text="@string/settings_title"
+            android:textAppearance="@style/TextAppearance.ShengQiao.PageTitle" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="@string/settings_audio_group"
+            android:textAppearance="@style/TextAppearance.ShengQiao.Section" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <com.google.android.material.switchmaterial.SwitchMaterial
+                android:id="@+id/low_latency_switch"
+                style="@style/Widget.ShengQiao.Switch"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:minHeight="48dp"
+                android:text="@string/settings_low_latency" />
+
+            <ImageButton
+                android:id="@+id/low_latency_info"
+                style="@style/Widget.ShengQiao.InfoButton"
+                android:contentDescription="@string/settings_low_latency_info" />
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/low_latency_status"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:textColor="@color/sq_text_secondary" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="@string/settings_buffer"
+                android:textColor="@color/sq_text"
+                android:textSize="17sp"
+                android:textStyle="bold" />
+
+            <ImageButton
+                android:id="@+id/buffer_info"
+                style="@style/Widget.ShengQiao.InfoButton"
+                android:contentDescription="@string/info_show_description" />
+        </LinearLayout>
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/buffer_choice"
+            style="@style/Widget.ShengQiao.Button.Choice"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:accessibilityTraversalAfter="@id/buffer_info" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="@string/settings_bitrate"
+                android:textColor="@color/sq_text"
+                android:textSize="17sp"
+                android:textStyle="bold" />
+
+            <ImageButton
+                android:id="@+id/bitrate_info"
+                style="@style/Widget.ShengQiao.InfoButton"
+                android:contentDescription="@string/info_show_description" />
+        </LinearLayout>
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/bitrate_choice"
+            style="@style/Widget.ShengQiao.Button.Choice"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:accessibilityTraversalAfter="@id/bitrate_info" />
+
+        <TextView
+            android:id="@+id/bitrate_status"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/settings_bitrate_pcm"
+            android:textColor="@color/sq_text_secondary"
+            android:textSize="13sp" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="@string/settings_denoise"
+                android:textColor="@color/sq_text"
+                android:textSize="17sp"
+                android:textStyle="bold" />
+
+            <ImageButton
+                android:id="@+id/denoise_info"
+                style="@style/Widget.ShengQiao.InfoButton"
+                android:contentDescription="@string/info_show_description" />
+        </LinearLayout>
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/denoise_choice"
+            style="@style/Widget.ShengQiao.Button.Choice"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:accessibilityTraversalAfter="@id/denoise_info" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="@string/settings_echo"
+                android:textColor="@color/sq_text"
+                android:textSize="17sp"
+                android:textStyle="bold" />
+
+            <ImageButton
+                android:id="@+id/echo_info"
+                style="@style/Widget.ShengQiao.InfoButton"
+                android:contentDescription="@string/info_show_description" />
+
+            <com.google.android.material.switchmaterial.SwitchMaterial
+                android:id="@+id/echo_switch"
+                style="@style/Widget.ShengQiao.Switch"
+                android:layout_width="wrap_content"
+                android:layout_height="40dp"
+                android:contentDescription="@string/settings_echo" />
+        </LinearLayout>
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:layout_marginTop="16dp"
+            android:background="@color/sq_surface_variant" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="@string/settings_appearance_group"
+            android:textAppearance="@style/TextAppearance.ShengQiao.Section" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="@string/settings_theme"
+                android:textColor="@color/sq_text"
+                android:textSize="17sp"
+                android:textStyle="bold" />
+
+            <ImageButton
+                android:id="@+id/theme_info"
+                style="@style/Widget.ShengQiao.InfoButton"
+                android:contentDescription="@string/info_show_description" />
+        </LinearLayout>
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/theme_choice"
+            style="@style/Widget.ShengQiao.Button.Choice"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:accessibilityTraversalAfter="@id/theme_info" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="@string/settings_material"
+                android:textColor="@color/sq_text"
+                android:textSize="17sp"
+                android:textStyle="bold" />
+
+            <ImageButton
+                android:id="@+id/material_info"
+                style="@style/Widget.ShengQiao.InfoButton"
+                android:contentDescription="@string/info_show_description" />
+        </LinearLayout>
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/material_choice"
+            style="@style/Widget.ShengQiao.Button.Choice"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:accessibilityTraversalAfter="@id/material_info" />
+
+        <TextView
+            android:id="@+id/material_status"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/settings_material_unsupported"
+            android:textColor="@color/sq_text_secondary"
+            android:textSize="13sp" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="@string/settings_page_background"
+                android:textColor="@color/sq_text"
+                android:textSize="17sp"
+                android:textStyle="bold" />
+
+            <ImageButton
+                android:id="@+id/page_background_info"
+                style="@style/Widget.ShengQiao.InfoButton"
+                android:contentDescription="@string/info_show_description" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:orientation="horizontal">
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/background_color_button"
+                style="@style/Widget.ShengQiao.Button.Outlined"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="@string/settings_background_color" />
+
+            <Space
+                android:layout_width="12dp"
+                android:layout_height="1dp" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/background_image_button"
+                style="@style/Widget.ShengQiao.Button.Outlined"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="@string/settings_background_image" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <TextView
+                android:id="@+id/background_choice_status"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="@string/settings_background_current_default"
+                android:textColor="@color/sq_text_secondary"
+                android:textSize="13sp" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/background_reset_button"
+                style="@style/Widget.ShengQiao.Button.Text"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/settings_background_reset" />
+        </LinearLayout>
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:layout_marginTop="16dp"
+            android:background="@color/sq_surface_variant" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="@string/settings_background_group"
+            android:textAppearance="@style/TextAppearance.ShengQiao.Section" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="@string/settings_background_title"
+                android:textColor="@color/sq_text"
+                android:textSize="17sp"
+                android:textStyle="bold" />
+
+            <ImageButton
+                android:id="@+id/background_work_info"
+                style="@style/Widget.ShengQiao.InfoButton"
+                android:contentDescription="@string/info_show_description" />
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/background_status"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:text="@string/settings_background_request"
+            android:textColor="@color/sq_text_secondary"
+            android:textSize="13sp" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/background_button"
+            style="@style/Widget.ShengQiao.Button.Outlined"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="@string/settings_background_action" />
+    </LinearLayout>
+</ScrollView>

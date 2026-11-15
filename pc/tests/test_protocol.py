@@ -24,9 +24,13 @@ def req(host, method, path, body=None, headers=None):
 
 # ---- HTTP routing / access control
 s, h, d = req(HOST, 'GET', '/')
-check('phone page served on LAN address', s == 200 and b'player-core.js' in d)
+check('phone page served on LAN address', s == 200 and b'player-core.js' in d and b'player.js' in d and b'player.css' in d)
 s, h, d = req(HOST, 'GET', '/player-core.js')
 check('player-core.js served', s == 200 and b'PlayerCore' in d)
+s, h, d = req(HOST, 'GET', '/player.js')
+check('player.js served without legacy lock screen mode', s == 200 and b'keepawake' not in d and b'stream.mp3' not in d)
+s, h, d = req(HOST, 'GET', '/player.css')
+check('player.css served', s == 200 and b'--primary' in d)
 s, h, d = req(HOST, 'GET', '/pc')
 check('PC console blocked from LAN', s == 403, s)
 s, h, d = req('127.0.0.1', 'GET', '/pc')
@@ -39,15 +43,15 @@ s, h, d = req(HOST, 'GET', '/api/check?k=wrong1')
 check('check wrong key -> 403', s == 403, s)
 s, h, d = req(HOST, 'GET', '/api/check?k=' + KEY.upper())
 check('check right key (case-insensitive) -> ok', s == 200 and json.loads(d)['ok'], d[:80])
-s, h, d = req(HOST, 'GET', '/keepawake.mp4', headers={'Range': 'bytes=0-1'})
-check('video Range bytes=0-1 -> 206', s == 206 and len(d) == 2 and h.get('Content-Range', '').startswith('bytes 0-1/'), (s, h.get('Content-Range')))
+s, h, d = req(HOST, 'GET', '/icon-512.png', headers={'Range': 'bytes=0-1'})
+check('static Range bytes=0-1 -> 206', s == 206 and len(d) == 2 and h.get('Content-Range', '').startswith('bytes 0-1/'), (s, h.get('Content-Range')))
 size = int(h['Content-Range'].split('/')[1])
-s, h, d = req(HOST, 'GET', '/keepawake.mp4', headers={'Range': 'bytes=100-'})
-check('video open-ended range', s == 206 and len(d) == size - 100)
-s, h, d = req(HOST, 'GET', '/keepawake.mp4', headers={'Range': 'bytes=%d-' % (size + 5)})
+s, h, d = req(HOST, 'GET', '/icon-512.png', headers={'Range': 'bytes=100-'})
+check('static open-ended range', s == 206 and len(d) == size - 100)
+s, h, d = req(HOST, 'GET', '/icon-512.png', headers={'Range': 'bytes=%d-' % (size + 5)})
 check('unsatisfiable range -> 416', s == 416, s)
 s, h, d = req(HOST, 'GET', '/keepawake.mp4')
-check('video full GET advertises ranges', s == 200 and len(d) == size and h.get('Accept-Ranges') == 'bytes')
+check('legacy keep-awake video removed', s == 404, s)
 s, h, d = req(HOST, 'GET', '/../server.py')
 check('path traversal not served', s == 404, s)
 s, h, d = req(HOST, 'GET', '/icon-180.png')
@@ -166,12 +170,13 @@ check('status lists live listener with stats', len(ls) == 1 and ls[0]['latency']
 check('status urls include LAN address', any(HOST in u and ('k=' + KEY) in u for u in st['urls']), st['urls'])
 
 # ---- chime + device APIs
-s, h, d = req('127.0.0.1', 'POST', '/api/chime', body=b'')
+local_json = {'Content-Type': 'application/json', 'Origin': f'http://127.0.0.1:{PORT}'}
+s, h, d = req('127.0.0.1', 'POST', '/api/chime', body=b'{}', headers=local_json)
 check('chime API', s == 200)
 s, h, d = req('127.0.0.1', 'GET', '/api/devices')
 check('devices API', s == 200 and len(json.loads(d)['devices']) >= 1, d[:120])
 s, h, d = req('127.0.0.1', 'POST', '/api/device', body=json.dumps({'id': 'default'}).encode(),
-              headers={'Content-Type': 'application/json'})
+              headers=local_json)
 check('set device API', s == 200)
 
 # ---- MP3 stream (while the WS client is still connected: two listeners at once)
@@ -244,7 +249,8 @@ qa = start_reader(ra)
 check('v2: hello has id + mic feature', 'mic' in hello.get('features', []) and len(hello.get('id', '')) >= 8, hello)
 
 # listen off -> no audio frames, but status messages
-ws_send_text(ska, json.dumps({'type': 'config', 'listen': False, 'mic': False}))
+ws_send_text(ska, json.dumps({'type': 'config', 'listen': False, 'mic': False,
+                              'deviceName': '小明的 iPhone'}))
 drain(qa, 0.3)
 audio = 0; statuses = []
 for op, payload in drain(qa, 2.5):
@@ -274,7 +280,9 @@ time.sleep(0.4)
 s_, h_, d_ = req('127.0.0.1', 'GET', '/api/status')
 st = json.loads(d_)
 check('v2: PC status shows mic running', st['mic']['active'] and st['mic']['state'] == 'running', st['mic'])
-lst = [c for c in st['listeners'] if c['device'].startswith('iPhone')]
+check('v2: PC status uses reported device name',
+      any(c['device'] == '小明的 iPhone' for c in st['listeners']), st['listeners'])
+lst = [c for c in st['listeners'] if c['device'] == '小明的 iPhone']
 check('v2: listener row shows listen+mic roles', any(c['mic'] and c['listen'] for c in lst), lst)
 s_, h_, wav = req('127.0.0.1', 'GET', '/api/debug/mic.wav')
 x = np.frombuffer(wav[44:], dtype='<i2').astype(np.float64) / 32767
@@ -299,7 +307,7 @@ st_msgs = [json.loads(p) for op, p in drain(qa, 1.2) if op == 1]
 st_last = [m for m in st_msgs if m.get('type') == 'status'][-1:]
 check('denoise: App sets strong, status reports it', st_last and st_last[0]['mic']['denoise'] == 'strong'
       and 'rnnoise' in st_last[0]['mic']['denoiseModes'], st_last)
-s_, h_, d_ = req('127.0.0.1', 'POST', '/api/denoise', body=json.dumps({'mode': 'light'}).encode())
+s_, h_, d_ = req('127.0.0.1', 'POST', '/api/denoise', body=json.dumps({'mode': 'light'}).encode(), headers=local_json)
 time.sleep(1.2)
 st_msgs = [json.loads(p) for op, p in drain(qa, 1.2) if op == 1]
 st_last = [m for m in st_msgs if m.get('type') == 'status'][-1:]
@@ -330,6 +338,18 @@ s_, h_, d_ = req('127.0.0.1', 'GET', '/api/status')
 check('v2: mic released when its phone disconnects', not json.loads(d_)['mic']['active'], json.loads(d_)['mic'])
 ska.close()
 time.sleep(0.5)
+
+skd, head, rest = ws_connect(KEY, header_key=True, ua='ShengQiao/2.0 (Android)')
+check('v2: Android app websocket connects', head.startswith(b'HTTP/1.1 101'))
+Reader(skd, rest).frame()
+time.sleep(0.3)
+s_, h_, d_ = req('127.0.0.1', 'GET', '/api/status')
+listeners = json.loads(d_)['listeners']
+check('v2: Android app is labelled Android in status API',
+      any(c['device'] == 'Android（App）' for c in listeners), listeners)
+skd.close()
+time.sleep(0.3)
+
 s, h, d = req('127.0.0.1', 'GET', '/api/status')
 s2, h2, d2 = req('127.0.0.1', 'GET', '/api/mic-devices')
 md = json.loads(d2)

@@ -6,6 +6,7 @@ Run: python3 ios/CoreTests/test_core.py   (builds the library with cc first)
 """
 import ctypes
 import os
+import shlex
 import subprocess
 import sys
 import tempfile
@@ -14,8 +15,11 @@ import numpy as np
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 SRC = os.path.join(HERE, '..', 'ShengQiao', 'Audio', 'sq_core.c')
-LIB = os.path.join(tempfile.gettempdir(), 'libsqcore_test.so')
-subprocess.check_call(['cc', '-O2', '-std=c11', '-Wall', '-Wextra', '-Werror', '-shared', '-fPIC', SRC, '-o', LIB, '-lm'])
+LIB = os.path.join(tempfile.gettempdir(), 'sqcore_test.dll' if os.name == 'nt' else 'libsqcore_test.so')
+compiler = shlex.split(os.environ.get('SQ_CC', 'cc'))
+flags = ['-Wl,--export-all-symbols'] if os.name == 'nt' else ['-fPIC']
+subprocess.check_call(compiler + ['-O2', '-std=c11', '-Wall', '-Wextra', '-Werror', '-shared']
+                      + flags + [SRC, '-o', LIB, '-lm'])
 lib = ctypes.CDLL(LIB)
 
 

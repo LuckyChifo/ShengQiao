@@ -1,4 +1,5 @@
 import AVFoundation
+import Network
 import Combine
 import Foundation
 import MediaPlayer
@@ -112,16 +113,35 @@ final class AppModel: ObservableObject {
     @Published private(set) var audioError: String?
     @Published var micPermissionDenied = false
     @Published var showConnect = false
+    /// 当前是不是通过 USB 数据线（电脑经 usbmux 连进来）连着电脑
+    @Published private(set) var viaUSB = false
+    /// 是否允许电脑通过 USB 连接（关掉就不再监听）
+    @Published var usbEnabled: Bool {
+        didSet {
+            defaults.set(usbEnabled, forKey: "usbEnabled")
+            if usbEnabled {
+                setManualDisconnect(false)
+                usb.start()
+            } else {
+                dropUSB()
+            }
+        }
+    }
 
     let audio = AudioController()
     let connection = Connection()
     let discovery = Discovery()
+    let usb = UsbListener()
 
     private let defaults = UserDefaults.standard
     private let shared = Shared()
     private(set) var target: ConnTarget?
     private var key = ""
     private(set) var pcId = ""
+    private var wifiPcId = ""    // 对应 target 和 key，USB 握手不能改写
+    // 在主线程发起连接时立即更新，主线程处理事件时再核对。
+    private var connectionSession: UUID?
+    private var manualDisconnect = false
     private var retry = 0
     private var reconnectWork: DispatchWorkItem?
     private var uiTimer: Timer?
@@ -129,6 +149,7 @@ final class AppModel: ObservableObject {
     private var rttMs: Double?
     private var discoveryWatch: Any?
     private var denoiseSentAt = Date.distantPast
+    private var micPermissionRequest: UUID?
 
     // 只在 connection.queue 上访问
     private var qListen = false
@@ -138,7 +159,7 @@ final class AppModel: ObservableObject {
     private var qMicSeq: UInt32 = 0
     private var qExpectSeq: Int64 = -1
     private var qLastMessage = CACurrentMediaTime()
-    private var qLinkUp = false
+    private var qReadySession: UUID?
     private var micTimer: DispatchSourceTimer?
     private var micFloats = [Float](repeating: 0, count: 4096)
 
@@ -148,14 +169,19 @@ final class AppModel: ObservableObject {
         preset = Preset(rawValue: d.string(forKey: "preset") ?? "") ?? .mid
         volume = (d.object(forKey: "volume") as? Double) ?? 1.0
         micGain = (d.object(forKey: "micGain") as? Double) ?? 1.0
+        usbEnabled = (d.object(forKey: "usbEnabled") as? Bool) ?? true
+        manualDisconnect = d.bool(forKey: "manualDisconnect")
         qMicGain = Float(micGain)
         sq_player_set_target_ms(audio.player, preset.targetMs)
         sq_player_set_gain(audio.player, Float(volume))
 
-        connection.onEvent = { [weak self] ev in self?.onNetEvent(ev) }
+        connection.onEvent = { [weak self] ev, session in self?.onNetEvent(ev, session: session) }
         audio.onChange = { [weak self] in self?.audioChanged() }
         setupRemoteCommands()
         startMicTimer()
+
+        usb.onConnection = { [weak self] c in DispatchQueue.main.async { self?.usbConnected(c) } }
+        if usbEnabled && !manualDisconnect { usb.start() }
 
         discoveryWatch = discovery.$pcs.sink { [weak self] list in self?.discovered(list) }
         discovery.start()
@@ -163,9 +189,8 @@ final class AppModel: ObservableObject {
         if let data = defaults.data(forKey: "lastTarget"),
            let t = try? JSONDecoder().decode(ConnTarget.self, from: data),
            let k = defaults.string(forKey: "lastKey") {
-            pcId = defaults.string(forKey: "lastPcId") ?? ""
             pcName = defaults.string(forKey: "lastPcName") ?? ""
-            connect(t, key: k)
+            connect(t, key: k, pcId: defaults.string(forKey: "lastPcId") ?? "")
         }
         uiTimer = Timer.scheduledTimer(withTimeInterval: 0.25, repeats: true) { [weak self] _ in self?.uiTick() }
     }
@@ -181,15 +206,37 @@ final class AppModel: ObservableObject {
 
     var hasTarget: Bool { target != nil }
 
+    private func setManualDisconnect(_ value: Bool) {
+        manualDisconnect = value
+        defaults.set(value, forKey: "manualDisconnect")
+    }
+
     // MARK: - connect
 
-    func connect(_ t: ConnTarget, key k: String) {
-        reconnectWork?.cancel()
+    func connect(_ t: ConnTarget, key k: String, pcId: String = "") {
+        setManualDisconnect(false)
+        if usbEnabled { usb.start() }
+        viaUSB = false
         target = t
         key = k.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        wifiPcId = pcId
+        self.pcId = pcId
         retry = 0
+        startWiFi(t)
+    }
+
+    private func startWiFi(_ t: ConnTarget) {
+        reconnectWork?.cancel()
+        let session = UUID()
+        connectionSession = session
         link = .connecting
-        connection.connect(t, key: key)
+        connection.connect(t, key: key, session: session)
+    }
+
+    private func disconnectNetwork() {
+        reconnectWork?.cancel()
+        connectionSession = nil
+        connection.disconnect()
     }
 
     /// 连接扫码得到的网址 / 手动输入的地址。返回 false 表示格式不对。
@@ -206,82 +253,151 @@ final class AppModel: ObservableObject {
         if text.isEmpty { return nil }
         if !text.contains("://") { text = "http://" + text }
         guard let comps = URLComponents(string: text), let host = comps.host, !host.isEmpty else { return nil }
-        let port = UInt16(comps.port ?? 23333)
+        guard let port = UInt16(exactly: comps.port ?? 23333), port > 0 else { return nil }
         let key = comps.queryItems?.first(where: { $0.name == "k" })?.value
         return (host, port, key)
     }
 
     func disconnect() {
-        reconnectWork?.cancel()
+        setManualDisconnect(true)
+        disconnectNetwork()
+        usb.stop()
+        viaUSB = false
         target = nil
-        connection.disconnect()
-        connection.queue.async { self.qLinkUp = false }
+        stopAudio()
         link = .idle
         defaults.removeObject(forKey: "lastTarget")
     }
 
-    private func scheduleReconnect() {
-        guard let t = target else { return }
+    private func stopAudio() {
+        micPermissionRequest = nil
+        listening = false
+        micOn = false
+        micInfo = MicInfo()
+        micLevel = 0
+        applyAudio()
+        connection.queue.async {
+            _ = self.shared.takePeak()
+        }
+    }
+
+    // MARK: - USB 直连
+
+    /// 电脑经 USB 连进来了：USB 优先，把 Wi-Fi 连接换掉（Wi-Fi 的目标留着，USB 断了再回去）
+    private func usbConnected(_ c: NWConnection) {
+        guard usbEnabled && !manualDisconnect else { c.cancel(); return }
         reconnectWork?.cancel()
+        let session = UUID()
+        connectionSession = session
+        viaUSB = true
+        pcId = ""
+        pcName = ""
+        link = .connecting
+        connection.adopt(c, session: session)
+    }
+
+    /// USB 连接断了（拔线、电脑退出、App 进后台…）：有 Wi-Fi 目标就回到 Wi-Fi，没有就回到空闲
+    private func usbLost(_ reason: String) {
+        guard viaUSB else { return }
+        viaUSB = false
+        pcId = wifiPcId
+        pcName = target?.label ?? ""
+        if target != nil {
+            link = .failed(reason)
+            scheduleReconnect()
+        } else {
+            stopAudio()
+            link = .idle
+        }
+    }
+
+    /// 用户在界面里关掉 USB 直连
+    private func dropUSB() {
+        usb.stop()
+        if viaUSB {
+            disconnectNetwork()
+            usbLost("USB 直连已关闭")
+        }
+    }
+
+    private func scheduleReconnect() {
+        guard !manualDisconnect, let t = target else { return }
+        reconnectWork?.cancel()
+        let session = connectionSession
         let delay = min(3.0, 0.5 * pow(1.6, Double(retry)))
         retry += 1
         let work = DispatchWorkItem { [weak self] in
-            guard let self = self, self.target != nil, self.link != .connected else { return }
+            guard let self = self, self.connectionSession == session, self.target == t, !self.viaUSB,
+                  self.link != .connected, self.link != .needKey else { return }
             // 用 IP 连接失败、但局域网里发现了同一台电脑（IP 变了）：改用自动发现的地址
             var next = t
-            if case .host = t, !self.pcId.isEmpty, let pc = self.discovery.pcs.first(where: { $0.id == self.pcId }) {
+            if case .host = t, !self.wifiPcId.isEmpty,
+               let pc = self.discovery.pcs.first(where: { $0.id == self.wifiPcId }) {
                 next = pc.target
                 self.target = next
             }
-            self.connection.connect(next, key: self.key)
+            self.startWiFi(next)
         }
         reconnectWork = work
         DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: work)
     }
 
     private func discovered(_ list: [Discovery.PC]) {
-        // 还没连上任何电脑（或一直连不上）时，自动连已经配对过的电脑
+        // 没有指定连接目标时，可以自动连已配对的电脑。
+        guard !manualDisconnect, !viaUSB, target == nil else { return }
         switch link {
         case .connected, .connecting, .needKey: return
         default: break
         }
         let keys = savedKeys
-        if let pc = list.first(where: { $0.id == pcId && keys[$0.id] != nil }) ?? list.first(where: { keys[$0.id] != nil }) {
-            pcId = pc.id
-            connect(pc.target, key: keys[pc.id]!)
+        if let pc = list.first(where: { $0.id == wifiPcId && keys[$0.id] != nil }) ?? list.first(where: { keys[$0.id] != nil }),
+           let key = keys[pc.id] {
+            connect(pc.target, key: key, pcId: pc.id)
         }
     }
 
     // MARK: - network events（在 connection.queue 上）
 
-    private func onNetEvent(_ ev: Connection.Event) {
+    private func onNetEvent(_ ev: Connection.Event, session: UUID) {
         switch ev {
         case .audio(let data):
             qLastMessage = CACurrentMediaTime()
             handleAudio(data)
         case .ready:
             qLastMessage = CACurrentMediaTime()
-            qLinkUp = true
+            qReadySession = session
             qExpectSeq = -1
         case .text(let obj):
             qLastMessage = CACurrentMediaTime()
-            DispatchQueue.main.async { self.handleText(obj) }
+            onMainForSession(session) {
+                self.handleText(obj)
+            }
         case .closed(let reason):
-            qLinkUp = false
-            DispatchQueue.main.async {
-                if self.target == nil { return }
+            qReadySession = nil
+            onMainForSession(session) {
+                if self.viaUSB { self.usbLost(reason ?? "USB 断开了"); return }
                 self.link = .failed(reason ?? "连接断开了")
                 self.scheduleReconnect()
             }
         case .badKey:
-            qLinkUp = false
-            DispatchQueue.main.async {
+            qReadySession = nil
+            onMainForSession(session) {
+                if self.viaUSB { self.usbLost("USB 连接被拒绝"); return }
+                self.reconnectWork?.cancel()
                 var keys = self.savedKeys
-                if !self.pcId.isEmpty { keys.removeValue(forKey: self.pcId) }
+                if !self.wifiPcId.isEmpty { keys.removeValue(forKey: self.wifiPcId) }
                 self.savedKeys = keys
                 self.link = .needKey
+                self.stopAudio()
                 self.showConnect = true
             }
+        }
+    }
+
+    private func onMainForSession(_ session: UUID, _ handle: @escaping () -> Void) {
+        DispatchQueue.main.async {
+            guard self.connectionSession == session else { return }
+            handle()
         }
     }
 
@@ -310,15 +426,16 @@ final class AppModel: ObservableObject {
             if let id = m["id"] as? String, !id.isEmpty { pcId = id }
             link = .connected
             retry = 0
-            if !pcId.isEmpty {
+            if !viaUSB { wifiPcId = pcId }
+            if !viaUSB && !wifiPcId.isEmpty {
                 var keys = savedKeys
-                keys[pcId] = key
+                keys[wifiPcId] = key
                 savedKeys = keys
             }
-            if let t = target, let data = try? JSONEncoder().encode(t) {
+            if !viaUSB, let t = target, let data = try? JSONEncoder().encode(t) {
                 defaults.set(data, forKey: "lastTarget")
                 defaults.set(key, forKey: "lastKey")
-                defaults.set(pcId, forKey: "lastPcId")
+                defaults.set(wifiPcId, forKey: "lastPcId")
                 defaults.set(pcName, forKey: "lastPcName")
             }
             sendConfig()
@@ -367,12 +484,17 @@ final class AppModel: ObservableObject {
 
     func setMic(_ on: Bool) {
         if !on {
+            micPermissionRequest = nil
             micOn = false
             applyAudio()
             return
         }
+        let request = UUID()
+        micPermissionRequest = request
         AppModel.requestMicPermission { granted in
             DispatchQueue.main.async {
+                guard self.micPermissionRequest == request else { return }
+                self.micPermissionRequest = nil
                 if granted {
                     self.micPermissionDenied = false
                     self.micOn = true
@@ -414,7 +536,14 @@ final class AppModel: ObservableObject {
             if micOn && audio.lastError != nil { micOn = false }
         }
         let mic = micOn && audio.isRunning
-        connection.queue.async { self.qMic = mic }
+        let chunk = max(1, Int((audio.micSampleRate / 100).rounded()))
+        connection.queue.async {
+            self.qMic = mic
+            self.qMicChunk = chunk
+            sq_ring_discard(self.audio.micRing)
+        }
+        // 路由变化/中断恢复可能改变采样率，电脑端也必须同步。
+        sendConfig()
     }
 
     // MARK: - mic sender（connection.queue 上的 5 ms 定时器）
@@ -428,10 +557,10 @@ final class AppModel: ObservableObject {
     }
 
     private func pumpMic() {
+        watchdog()
         let ring = audio.micRing
-        guard qMic, qLinkUp else {
+        guard qMic, let session = qReadySession, session == connection.session else {
             sq_ring_discard(ring)
-            watchdog()
             return
         }
         let chunk = qMicChunk
@@ -455,20 +584,13 @@ final class AppModel: ObservableObject {
         }
         // 网络卡住时积压超过 0.3 秒：丢掉旧的，保证实时
         if Int(sq_ring_available(ring)) > chunk * 30 { sq_ring_discard(ring) }
-        watchdog()
     }
 
     /// 超过 5 秒没收到电脑的任何消息：认为连接已死，主动重连
     private func watchdog() {
-        if qLinkUp && CACurrentMediaTime() - qLastMessage > 5 {
-            qLinkUp = false
-            connection.disconnect()
-            DispatchQueue.main.async {
-                guard self.target != nil else { return }
-                self.link = .failed("很久没收到电脑的数据")
-                self.scheduleReconnect()
-            }
-        }
+        guard let session = qReadySession, session == connection.session,
+              CACurrentMediaTime() - qLastMessage > 5 else { return }
+        connection.finishOnQueue(session, reason: "很久没收到电脑的数据")
     }
 
     // MARK: - UI timer
@@ -511,9 +633,9 @@ final class AppModel: ObservableObject {
 
     func becameActive() {
         audio.ensureRunning()
-        if let t = target, link != .connected, link != .connecting, link != .needKey {
-            connection.connect(t, key: key)
-            link = .connecting
+        if usbEnabled && !manualDisconnect { usb.start() }
+        if !viaUSB, let t = target, link != .connected, link != .connecting, link != .needKey {
+            startWiFi(t)
         }
         discovery.start()
     }
@@ -521,9 +643,16 @@ final class AppModel: ObservableObject {
     func enteredBackground() {
         if !listening && !micOn {
             // 什么都没开：系统马上会挂起 App，先断开，回来再连
-            connection.disconnect()
-            connection.queue.async { self.qLinkUp = false }
-            if target != nil { link = .failed("App 在后台") }
+            disconnectNetwork()
+            let wasUSB = viaUSB
+            viaUSB = false
+            if wasUSB {
+                pcId = wifiPcId
+                pcName = target?.label ?? ""
+            }
+            if link != .needKey {
+                if target != nil { link = .failed("App 在后台") } else if wasUSB { link = .idle }
+            }
             discovery.stop()
         }
     }
