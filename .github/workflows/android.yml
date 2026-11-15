@@ -25,7 +25,15 @@ jobs:
       - name: Install Android SDK components
         run: sdkmanager "platforms;android-35" "build-tools;35.0.0" "ndk;27.0.12077973" "cmake;3.22.1"
       - name: Install PC test-service dependencies
-        run: python -m pip install numpy lameenc qrcode zeroconf
+        run: |
+          if ! dpkg -s libopus0 >/dev/null 2>&1; then
+            sudo apt-get update
+            sudo apt-get install -y --no-install-recommends libopus0
+          fi
+          opus_library=$(dpkg -L libopus0 | awk '/\/libopus\.so\.0$/ { print }')
+          test -r "$opus_library"
+          ln -s "$opus_library" pc/app/lib/libopus.so.0
+          python -m pip install numpy lameenc qrcode zeroconf
       - name: Start isolated PC protocol service
         run: |
           python pc/app/server.py --no-tray --no-browser --no-qr --no-usb --no-bonjour --source tone --mic-out fake --port 23333 --debug > /tmp/shengqiao-android-ci.log 2>&1 &
