@@ -16,7 +16,11 @@
 
 ## 构建
 
-需要 JDK 17、Android SDK 35、NDK 27.0.12077973 和 CMake 3.22.1。`libopus` 1.5.2 源码位于 `app/src/main/cpp/opus/`，Gradle 会直接编译进 APK。在本目录运行：
+需要 JDK 17、Android SDK 35、NDK 27.0.12077973 和 CMake 3.22.1。`libopus` 1.5.2 源码位于 `app/src/main/cpp/opus/`，Gradle 会直接编译进 APK。
+
+荣耀 Translucent Component Kit 的 AAR 不随仓库分发。构建前从荣耀官方的 [SDK 下载与集成页面](https://developer.honor.com/cn/docs/translucent/sdk/sdk) 下载 11.0.0.134 版，将 `hnvisualeffect-11.0.0.134.aar` 放入本目录的 `app/libs/`。也可以使用页面提供的[官方 CDN 下载链接](https://contentplatform-drcn.hihonorcdn.com/developerPlatform/hnvisualeffect-11.0.0.134/hnvisualeffect-11.0.0.134.aar)。
+
+准备完成后，在本目录运行：
 
 ```bash
 ./gradlew test assembleDebug

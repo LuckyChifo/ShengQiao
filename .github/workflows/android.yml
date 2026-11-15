@@ -17,6 +17,11 @@ jobs:
           java-version: '17'
       - uses: android-actions/setup-android@v3
       - uses: gradle/actions/setup-gradle@v4
+      - name: Download HONOR Translucent Component Kit
+        run: |
+          mkdir -p android/app/libs
+          curl --fail --location https://contentplatform-drcn.hihonorcdn.com/developerPlatform/hnvisualeffect-11.0.0.134/hnvisualeffect-11.0.0.134.aar --output android/app/libs/hnvisualeffect-11.0.0.134.aar
+          echo "60fda147e308baa57168845d2e6d2ca03c77defc16ab7e73466bec2d42f4d8fc  android/app/libs/hnvisualeffect-11.0.0.134.aar" | sha256sum -c -
       - name: Install Android SDK components
         run: sdkmanager "platforms;android-35" "build-tools;35.0.0" "ndk;27.0.12077973" "cmake;3.22.1"
       - name: Install PC test-service dependencies
@@ -58,6 +63,11 @@ jobs:
           java-version: '17'
       - uses: android-actions/setup-android@v3
       - uses: gradle/actions/setup-gradle@v4
+      - name: Download HONOR Translucent Component Kit
+        run: |
+          mkdir -p android/app/libs
+          curl --fail --location https://contentplatform-drcn.hihonorcdn.com/developerPlatform/hnvisualeffect-11.0.0.134/hnvisualeffect-11.0.0.134.aar --output android/app/libs/hnvisualeffect-11.0.0.134.aar
+          echo "60fda147e308baa57168845d2e6d2ca03c77defc16ab7e73466bec2d42f4d8fc  android/app/libs/hnvisualeffect-11.0.0.134.aar" | sha256sum -c -
       - name: Install native build components
         run: sdkmanager "platforms;android-35" "build-tools;35.0.0" "ndk;27.0.12077973" "cmake;3.22.1"
       - name: Run instrumented audio tests on Android emulator

@@ -19,6 +19,7 @@ android/app/build/
 android/app/.cxx/
 android/glass/build/
 android/glass-demo/build/
+/android/app/libs/hnvisualeffect-*.aar
 pc/deps/
 pc/runtime/
 pc/.shortcut-done
